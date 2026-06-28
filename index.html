@@ -17,6 +17,9 @@
         <button id="pal-button" class="hud-chip" type="button" aria-label="My monster pals">
           <span class="hud-chip__icon">🥚</span><span id="pal-count" class="hud-chip__count">0</span>
         </button>
+        <button id="coin-chip" class="hud-chip" type="button" aria-label="Monedas — tap to customize Thomas">
+          🪙<span id="coin-count" class="hud-chip__count">0</span>
+        </button>
 
         <div id="quest-card" role="status">
           <span id="quest-icon">🔍</span>
@@ -72,7 +75,30 @@
           <h1 class="start-title">Isla&nbsp;Monstruo</h1>
           <p class="start-sub">Spanish Monster Island</p>
           <button id="play-button" class="big-button" type="button">▶&nbsp;Jugar</button>
+          <button id="customizer-button" class="secondary-button" type="button">🎨 Personalizar a Thomas</button>
           <p id="voice-note" class="start-note"></p>
+        </div>
+      </div>
+
+      <!-- ============================ Customizer ============================ -->
+      <div id="customizer" class="overlay hidden">
+        <div class="panel">
+          <header class="panel__head">
+            <h2>Color de Thomas</h2>
+            <button class="icon-close" id="customizer-close" type="button" aria-label="Close">✕</button>
+          </header>
+          <div class="customizer-preview">
+            <img id="customizer-thomas" src="" alt="Thomas" class="customizer-thomas-img" />
+          </div>
+          <p class="customizer-balance">🪙 <span id="customizer-coins">0</span> monedas</p>
+          <p class="customizer-section-label">Colores gratis</p>
+          <div id="customizer-free" class="color-orbs"></div>
+          <p class="customizer-section-label customizer-section-label--earned">Gana más jugando 🔒</p>
+          <div id="customizer-earned" class="color-orbs"></div>
+          <div id="customizer-confirm" class="customizer-confirm hidden">
+            <button id="customizer-cancel-btn" class="confirm-cancel" type="button">✕ Cancelar</button>
+            <button id="customizer-buy-btn" class="confirm-buy" type="button">¡Comprar! <span id="customizer-buy-cost">10</span> 🪙</button>
+          </div>
         </div>
       </div>
 
@@ -107,6 +133,7 @@
             <span>🌙 Calm mode (less motion)</span>
             <input id="set-calm" type="checkbox" />
           </label>
+          <button id="customizer-settings-button" class="text-button" type="button">🎨 Personalizar a Thomas →</button>
           <button id="grownups-button" class="text-button" type="button">For grown-ups →</button>
         </div>
       </div>

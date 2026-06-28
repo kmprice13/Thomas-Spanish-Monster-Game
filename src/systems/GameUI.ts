@@ -12,13 +12,46 @@ import type { ParentSummary } from './ProgressStore';
 
 const CHISPA_IMG = 'assets/chispa_base.png';
 
+// ── Color / skin definitions — single source of truth for the customizer ──────
+const FREE_COLORS = [
+  { id: 'menta',   label: 'Menta',   css: '#44d9a0' },
+  { id: 'morado',  label: 'Morado',  css: '#b06cff' },
+  { id: 'azul',    label: 'Azul',    css: '#4d8cff' },
+  { id: 'naranja', label: 'Naranja', css: '#ff6b35' },
+] as const;
+
+const EARNED_COLORS = [
+  { id: 'alien',       label: 'Alienígena',    css: '#00ff88', cost: 10 },
+  { id: 'baby',        label: 'Baby',          css: '#9de8ff', cost: 10 },
+  { id: 'cloud',       label: 'Nube',          css: '#d8eeff', cost: 10 },
+  { id: 'hada',        label: 'Hada',          css: '#ffb8e0', cost: 10 },
+  { id: 'ghost',       label: 'Fantasma',      css: '#c8d8f0', cost: 10 },
+  { id: 'brillante',   label: 'Brillante',     css: '#ffd700', cost: 10 },
+  { id: 'island',      label: 'Isla',          css: '#00c9a7', cost: 10 },
+  { id: 'origami',     label: 'Origami',       css: '#ff6b6b', cost: 10 },
+  { id: 'paint',       label: 'Pintura',       css: '#e040fb', cost: 10 },
+  { id: 'pastel',      label: 'Pastel',        css: '#ffb5c8', cost: 10 },
+  { id: 'pharaon',     label: 'Faraón',        css: '#c8a24c', cost: 10 },
+  { id: 'pirate',      label: 'Pirata',        css: '#2a3a6a', cost: 10 },
+  { id: 'plushie',     label: 'Peluche',       css: '#f0c090', cost: 10 },
+  { id: 'prehistoric', label: 'Prehistórico',  css: '#8b7a14', cost: 10 },
+  { id: 'princess',    label: 'Princesa',      css: '#d070c0', cost: 10 },
+  { id: 'pumpkin',     label: 'Calabaza',      css: '#ff7043', cost: 10 },
+  { id: 'arcoiris',    label: 'Arcoíris',      css: '#ff6ef7', cost: 10 },
+  { id: 'shark',       label: 'Tiburón',       css: '#607d8b', cost: 10 },
+  { id: 'sprite',      label: 'Duende',        css: '#4caf50', cost: 10 },
+  { id: 'stealth',     label: 'Sigilo',        css: '#37474f', cost: 10 },
+] as const;
+
 export interface UICallbacks {
   onPlay: () => void;
   onReplay: () => void;
   onMuteChange: (muted: boolean) => void;
   onSlowChange: (slow: boolean) => void;
   onCalmChange: (calm: boolean) => void;
-  onColorChange: (hex: number) => void;
+  onColorChange: (id: string) => void;
+  onColorPreview: (id: string) => void; // swap Thomas texture for try-on without saving
+  onColorUnlock: (id: string, cost: number) => void;
 }
 
 export class GameUI {
@@ -42,6 +75,13 @@ export class GameUI {
   private bannerTimer = 0;
   private toastTimer = 0;
   private gateAnswer = 0;
+  private onColorChange!: (id: string) => void;
+  private onColorPreview!: (id: string) => void;
+  private onColorUnlock!: (id: string, cost: number) => void;
+  // Try-on state
+  private savedSkinId = 'azul';
+  private previewId: string | null = null;
+  private previewCost = 0;
 
   constructor(cbs: UICallbacks) {
     this.q('#play-button').addEventListener('click', () => cbs.onPlay());
@@ -58,49 +98,43 @@ export class GameUI {
     });
 
     this.grownupsButton.addEventListener('click', () => this.openParentGate());
-
-    // Color picker swatches — injected into settings panel
-    const COLORS: Array<{ label: string; hex: number; css: string }> = [
-      { label: 'Naranja',  hex: 0xff6b35, css: '#ff6b35' },
-      { label: 'Rojo',     hex: 0xe2483a, css: '#e2483a' },
-      { label: 'Azul',     hex: 0x4d8cff, css: '#4d8cff' },
-      { label: 'Verde',    hex: 0x6abf4b, css: '#6abf4b' },
-      { label: 'Morado',   hex: 0xb06cff, css: '#b06cff' },
-      { label: 'Rosa',     hex: 0xff7eb6, css: '#ff7eb6' },
-      { label: 'Amarillo', hex: 0xffd23f, css: '#ffd23f' },
-      { label: 'Turquesa', hex: 0x2ec5c1, css: '#2ec5c1' },
-    ];
-    const swatchRow = document.createElement('div');
-    swatchRow.className = 'color-swatch-row';
-    swatchRow.innerHTML = '<span class="swatch-label">🎨 Color de Thomas</span>';
-    const swatchGrid = document.createElement('div');
-    swatchGrid.className = 'swatch-grid';
-    COLORS.forEach(({ label, hex, css }) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'swatch';
-      btn.style.background = css;
-      btn.setAttribute('aria-label', label);
-      btn.dataset.hex = String(hex);
-      btn.addEventListener('click', () => {
-        swatchGrid.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
-        btn.classList.add('active');
-        cbs.onColorChange(hex);
-      });
-      swatchGrid.appendChild(btn);
+    this.q('#customizer-settings-button').addEventListener('click', () => {
+      this.close('settings-panel');
+      this.open('customizer');
     });
-    swatchRow.appendChild(swatchGrid);
-    const settingsPanel = document.querySelector('#settings-panel .panel');
-    const grownupsBtn = document.getElementById('grownups-button');
-    if (settingsPanel && grownupsBtn) settingsPanel.insertBefore(swatchRow, grownupsBtn);
 
-    // Close buttons (data-close="panel-id")
-    document.querySelectorAll('[data-close]').forEach((btn) => {
+    // Customizer portal
+    this.q('#customizer-button').addEventListener('click', () => this.open('customizer'));
+    this.q('#customizer-close').addEventListener('click', () => {
+      this.cancelPreview();
+      this.close('customizer');
+    });
+
+    // Generic data-close buttons (close button on each panel)
+    document.querySelectorAll<HTMLElement>('[data-close]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const id = (btn as HTMLElement).dataset.close!;
-        this.close(id);
+        const target = btn.dataset.close;
+        if (target) this.close(target);
       });
     });
+
+    // Store callbacks for use in buildCustomizer
+    this.onColorChange = cbs.onColorChange;
+    this.onColorPreview = cbs.onColorPreview;
+    this.onColorUnlock = cbs.onColorUnlock;
+
+    // Coin chip opens customizer
+    this.q('#coin-chip').addEventListener('click', () => this.open('customizer'));
+
+    // Confirm / cancel bar
+    this.q('#customizer-buy-btn').addEventListener('click', () => {
+      if (this.previewId === null) return;
+      this.onColorUnlock(this.previewId, this.previewCost);
+      this.hideConfirmBar();
+      this.previewId = null;
+    });
+    this.q('#customizer-cancel-btn').addEventListener('click', () => this.cancelPreview());
+
   }
 
   /** Show the HUD, hide the start screen. */
@@ -124,16 +158,125 @@ export class GameUI {
     this.palButton.querySelector('.hud-chip__icon')!.textContent = n > 0 ? '✨' : '🥚';
   }
 
-  applySettings(muted: boolean, slow: boolean, calm: boolean, playerColor?: number): void {
+  applySettings(muted: boolean, slow: boolean, calm: boolean, playerColorId?: string): void {
     this.setSound.checked = !muted;
     this.setSlow.checked = slow;
     this.setCalm.checked = calm;
     document.body.classList.toggle('calm', calm);
-    if (playerColor !== undefined) {
-      document.querySelectorAll<HTMLElement>('.swatch').forEach(s => {
-        s.classList.toggle('active', Number(s.dataset.hex) === playerColor);
+    if (playerColorId !== undefined) this.updateCustomizerSelection(playerColorId);
+  }
+
+  /** Build the customizer orb grid. Call after progress loads or after an unlock. */
+  buildCustomizer(unlockedColors: readonly string[], selectedId: string, coins: number): void {
+    this.savedSkinId = selectedId;
+    this.previewId = null;
+    this.hideConfirmBar();
+
+    const freeContainer   = this.q('#customizer-free');
+    const earnedContainer = this.q('#customizer-earned');
+
+    const balanceEl = document.getElementById('customizer-coins');
+    if (balanceEl) balanceEl.textContent = String(coins);
+
+    const makeUnlockedOrb = (id: string, label: string, css: string) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'color-orb';
+      btn.dataset.colorid = id;
+      btn.setAttribute('aria-label', label);
+      btn.innerHTML = `
+        <div class="color-orb__circle" style="background:${css}"></div>
+        <span class="color-orb__label">${label}</span>
+      `;
+      btn.addEventListener('click', () => {
+        this.cancelPreview();
+        this.onColorChange(id);
+        this.savedSkinId = id;
+        this.updateCustomizerSelection(id);
       });
-    }
+      return btn;
+    };
+
+    const makeLockedOrb = (id: string, label: string, css: string, cost: number, coins: number) => {
+      const affordable = coins >= cost;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = `color-orb locked${affordable ? ' affordable' : ''}`;
+      btn.dataset.colorid = id;
+      btn.dataset.cost = String(cost);
+      btn.setAttribute('aria-label', `${label} — ${cost} monedas`);
+      btn.innerHTML = `
+        <div class="color-orb__circle" style="background:${css}"></div>
+        <span class="color-orb__label">${label}</span>
+        <span class="color-orb__hint">${affordable ? 'Probar' : ''} ${cost} 🪙</span>
+      `;
+      if (affordable) {
+        btn.addEventListener('click', () => {
+          this.previewId = id;
+          this.previewCost = cost;
+          this.onColorPreview(id);
+          this.updateCustomizerSelection(id);
+          this.showConfirmBar(cost);
+        });
+      }
+      return btn;
+    };
+
+    freeContainer.innerHTML = '';
+    FREE_COLORS.forEach(({ id, label, css }) =>
+      freeContainer.appendChild(makeUnlockedOrb(id, label, css)));
+
+    earnedContainer.innerHTML = '';
+    EARNED_COLORS.forEach(({ id, label, css, cost }) => {
+      earnedContainer.appendChild(
+        unlockedColors.includes(id)
+          ? makeUnlockedOrb(id, label, css)
+          : makeLockedOrb(id, label, css, cost, coins),
+      );
+    });
+
+    this.updateCustomizerSelection(selectedId);
+  }
+
+  private cancelPreview(): void {
+    if (this.previewId === null) return;
+    this.previewId = null;
+    this.onColorPreview(this.savedSkinId);
+    this.hideConfirmBar();
+    this.updateCustomizerSelection(this.savedSkinId);
+  }
+
+  private showConfirmBar(cost: number): void {
+    const bar = document.getElementById('customizer-confirm');
+    const costEl = document.getElementById('customizer-buy-cost');
+    if (bar) bar.classList.remove('hidden');
+    if (costEl) costEl.textContent = String(cost);
+  }
+
+  private hideConfirmBar(): void {
+    document.getElementById('customizer-confirm')?.classList.add('hidden');
+  }
+
+  /** Update coin chip in HUD and balance in customizer. */
+  updateCoins(coins: number): void {
+    const chip = document.getElementById('coin-count');
+    if (chip) chip.textContent = String(coins);
+    const balance = document.getElementById('customizer-coins');
+    if (balance) balance.textContent = String(coins);
+    // Refresh affordability on locked orbs without a full rebuild
+    document.querySelectorAll<HTMLElement>('.color-orb.locked').forEach(orb => {
+      const cost = Number(orb.dataset.cost ?? 0);
+      orb.classList.toggle('affordable', coins >= cost);
+    });
+  }
+
+  /** Highlight the active orb and update the Thomas preview image. */
+  updateCustomizerSelection(id: string): void {
+    document.querySelectorAll<HTMLElement>('.color-orb').forEach(orb => {
+      orb.classList.toggle('active', orb.dataset.colorid === id);
+    });
+    const preview = document.getElementById('customizer-thomas') as HTMLImageElement | null;
+    if (preview) preview.src = `assets/thomas_${id}.png`;
   }
 
   /** Pop the celebration banner (¡Sí! ¡Muy bien! etc.). Clears after 1s. */

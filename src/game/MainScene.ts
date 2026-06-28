@@ -68,7 +68,8 @@ export class MainScene extends Phaser.Scene {
   private worldObjects: WorldObj[] = [];
   private carryIcon!: Phaser.GameObjects.Image;   // item floating above Thomas while carrying
   private lumiPulseRing!: Phaser.GameObjects.Graphics; // pulsing ring under Lumi during give quest
-  private playerImg!: Phaser.GameObjects.Image;   // Thomas sprite — tint updated by color picker
+  private playerImg!: Phaser.GameObjects.Image;
+  private coinPending = 0; // fractional coin accumulator for progressive earn rate
 
   // ── Player physics ────────────────────────────────────────────────────────
   private playerX = PLAYER_START_X;
@@ -111,6 +112,15 @@ export class MainScene extends Phaser.Scene {
 
   constructor() { super({ key: 'MainScene' }); }
 
+  private static readonly ALL_SKIN_IDS = [
+    // Free
+    'menta', 'morado', 'azul', 'naranja',
+    // Earned
+    'alien', 'baby', 'cloud', 'hada', 'ghost', 'brillante', 'island',
+    'origami', 'paint', 'pastel', 'pharaon', 'pirate', 'plushie',
+    'prehistoric', 'princess', 'pumpkin', 'arcoiris', 'shark', 'sprite', 'stealth',
+  ] as const;
+
   // ── Phaser lifecycle ──────────────────────────────────────────────────────
 
   preload(): void {
@@ -125,8 +135,8 @@ export class MainScene extends Phaser.Scene {
     this.load.image('bg', 'assets/bg.png');
     // Chispa collectible creature
     this.load.image('chispa', 'assets/chispa_base.png');
-    // Thomas — grayscale base, tinted in-game to the player's chosen color
-    this.load.image('thomas', 'assets/thomas_base.png');
+    // Thomas — one hand-crafted skin per choice (free + all earned)
+    MainScene.ALL_SKIN_IDS.forEach(id => this.load.image(`thomas_${id}`, `assets/thomas_${id}.png`));
     // Lumi — colored NPC sprite + portrait for start screen
     this.load.image('lumi', 'assets/lumi_base.png');
     this.load.image('lumi-portrait', 'assets/lumi_portrait.png');
@@ -163,9 +173,21 @@ export class MainScene extends Phaser.Scene {
         this.progress.setSettings({ slowSpeech: s });
       },
       onCalmChange: (c) => { this.progress.setSettings({ reducedMotion: c }); },
-      onColorChange: (hex) => {
-        this.progress.setSettings({ playerColor: hex });
-        if (this.playerImg) this.playerImg.setTint(hex);
+      onColorPreview: (id) => {
+        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`).setDisplaySize(120, 130);
+      },
+      onColorChange: (id) => {
+        this.progress.setSettings({ playerColorId: id });
+        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`).setDisplaySize(120, 130);
+        this.ui.updateCustomizerSelection(id);
+      },
+      onColorUnlock: (id, cost) => {
+        if (!this.progress.spendCoins(cost)) return;
+        this.progress.unlockColor(id);
+        this.progress.setSettings({ playerColorId: id });
+        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`).setDisplaySize(120, 130);
+        this.ui.buildCustomizer(this.progress.unlockedColors, id, this.progress.coins);
+        this.ui.updateCoins(this.progress.coins);
       },
     });
 
@@ -173,7 +195,9 @@ export class MainScene extends Phaser.Scene {
     this.sfx.setMuted(muted);
     this.clips.setMuted(muted);
     if (slowSpeech) this.voice.setBaseRate(0.72);
-    this.ui.applySettings(muted, slowSpeech, reducedMotion, this.progress.settings.playerColor);
+    this.ui.applySettings(muted, slowSpeech, reducedMotion, this.progress.settings.playerColorId);
+    this.ui.buildCustomizer(this.progress.unlockedColors, this.progress.settings.playerColorId, this.progress.coins);
+    this.ui.updateCoins(this.progress.coins);
 
     // ── Scene background image (depth -1) ────────────────────────────────
     // 1448×1086 source → exact 4:3 match for 800×600 canvas
@@ -238,7 +262,7 @@ export class MainScene extends Phaser.Scene {
     const lumiShadow = this.add.graphics();
     lumiShadow.fillStyle(0x000000, 0.15);
     lumiShadow.fillEllipse(0, 62, 80, 18);
-    this.textures.get('lumi').setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.textures.get('lumi').setFilter(Phaser.Textures.FilterMode.NEAREST);
     const lumiImg = this.add.image(0, 0, 'lumi').setScale(130 / 1024);
     this.lumiContainer = this.add.container(LUMI_X, LUMI_Y, [lumiShadow, lumiImg]);
     this.lumiContainer.setDepth(10);
@@ -255,12 +279,16 @@ export class MainScene extends Phaser.Scene {
     this.speechBubbleGfx.setVisible(false);
     this.speechBubbleText.setVisible(false);
 
-    // ── Thomas (player) — grayscale base tinted to player's chosen color ────
+    // ── Thomas (player) ───────────────────────────────────────────────────────
     const playerShadow = this.add.graphics();
     playerShadow.fillStyle(0x000000, 0.15);
     playerShadow.fillEllipse(0, 65, 80, 18);
-    this.playerImg = this.add.image(0, 0, 'thomas').setDisplaySize(120, 130)
-      .setTint(this.progress.settings.playerColor);
+    // Apply NEAREST filter to every Thomas skin so runtime swaps stay crisp
+    MainScene.ALL_SKIN_IDS.forEach(id => {
+      this.textures.get(`thomas_${id}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
+    });
+    const skinId = this.progress.settings.playerColorId;
+    this.playerImg = this.add.image(0, 0, `thomas_${skinId}`).setDisplaySize(120, 130);
     this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, this.playerImg]);
     this.playerContainer.setDepth(22);
     this.playerContainer.setSize(120, 130); // explicit bounds so Phaser never culls via 0×0 graphics child
@@ -751,6 +779,40 @@ export class MainScene extends Phaser.Scene {
     this.phase = 'celebrating';
     this.celebrateTimer = 1.4;
     this.npcBounceTimer = 1.0;
+    this.awardCoin();
+  }
+
+  private coinRate(): number {
+    const n = this.progress.unlockedColors.length;
+    if (n < 3)  return 1.0;
+    if (n < 8)  return 0.5;
+    if (n < 14) return 1 / 3;
+    return 0.25;
+  }
+
+  private awardCoin(): void {
+    this.coinPending += this.coinRate();
+    const whole = Math.floor(this.coinPending);
+    if (whole < 1) return; // still accumulating — no visual this time
+    this.coinPending -= whole;
+    this.progress.earnCoins(whole);
+    this.ui.updateCoins(this.progress.coins);
+    const txt = this.add.text(this.playerX, this.playerY - 80, `+${whole} 🪙`, {
+      fontSize: '26px',
+      fontFamily: '"Nunito", "Quicksand", system-ui, sans-serif',
+      color: '#ffd700',
+      fontStyle: 'bold',
+      stroke: '#3a1800',
+      strokeThickness: 4,
+    }).setOrigin(0.5, 1).setDepth(50);
+    this.tweens.add({
+      targets: txt,
+      y: txt.y - 70,
+      alpha: 0,
+      duration: 1100,
+      ease: 'Cubic.Out',
+      onComplete: () => txt.destroy(),
+    });
   }
 
   private async advanceQuest(): Promise<void> {
@@ -960,6 +1022,7 @@ export class MainScene extends Phaser.Scene {
     const line = praise(this.praiseIndex++);
     this.ui.showBanner(line);
     this.clips.speak(`praise-${this.praiseIndex % 6}`, line);
+    this.awardCoin();
     await delay(900);
 
     this.hideSimonTiles();

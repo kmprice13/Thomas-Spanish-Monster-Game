@@ -30,7 +30,7 @@ export interface GameSettings {
   reducedMotion: boolean;
   muted: boolean;
   slowSpeech: boolean;
-  playerColor: number; // hex tint applied to grayscale Thomas sprite (0 = default orange)
+  playerColorId: string; // skin id, e.g. 'azul', 'pirata', 'arcoiris'
 }
 
 /** Per-word SRS state. */
@@ -66,6 +66,8 @@ export interface ProgressData {
   secondsPlayed: number;
   words: Record<string, WordRecord>;
   creatures: string[];
+  unlockedColors: string[]; // earned color ids beyond the 4 free ones
+  coins: number;
   settings: GameSettings;
 }
 
@@ -148,7 +150,9 @@ function defaultData(): ProgressData {
     secondsPlayed: 0,
     words: {},
     creatures: [],
-    settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColor: 0xff6b35 },
+    unlockedColors: [],
+    coins: 0,
+    settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColorId: 'azul' },
   };
 }
 
@@ -172,6 +176,8 @@ export class ProgressStore {
         ...p,
         words: p.words ?? {},
         creatures: p.creatures ?? [],
+        unlockedColors: p.unlockedColors ?? [],
+        coins: p.coins ?? 0,
         settings: { ...defaultData().settings, ...(p.settings ?? {}) },
       };
     } catch {
@@ -200,6 +206,33 @@ export class ProgressStore {
   setSettings(patch: Partial<GameSettings>): void {
     this.data.settings = { ...this.data.settings, ...patch };
     this.scheduleSave();
+  }
+
+  // ── Coins ──
+
+  get coins(): number { return this.data.coins; }
+
+  earnCoins(amount: number): void {
+    this.data.coins += amount;
+    this.scheduleSave();
+  }
+
+  spendCoins(amount: number): boolean {
+    if (this.data.coins < amount) return false;
+    this.data.coins -= amount;
+    this.scheduleSave();
+    return true;
+  }
+
+  // ── Color unlocks ──
+
+  get unlockedColors(): readonly string[] { return this.data.unlockedColors; }
+
+  unlockColor(id: string): boolean {
+    if (this.data.unlockedColors.includes(id)) return false;
+    this.data.unlockedColors.push(id);
+    this.scheduleSave();
+    return true;
   }
 
   // ── Session ──
