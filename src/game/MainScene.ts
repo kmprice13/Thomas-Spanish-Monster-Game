@@ -236,8 +236,6 @@ export class MainScene extends Phaser.Scene {
     lumiShadow.fillEllipse(0, 62, 80, 18);
     this.textures.get('lumi').setFilter(Phaser.Textures.FilterMode.LINEAR);
     const lumiImg = this.add.image(0, 0, 'lumi').setScale(130 / 1024);
-    console.log('lumi texture w:', this.textures.get('lumi').getSourceImage().width);
-    console.log('lumi texture h:', this.textures.get('lumi').getSourceImage().height);
     this.lumiContainer = this.add.container(LUMI_X, LUMI_Y, [lumiShadow, lumiImg]);
     this.lumiContainer.setDepth(10);
 
