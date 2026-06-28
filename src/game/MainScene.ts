@@ -456,8 +456,11 @@ export class MainScene extends Phaser.Scene {
     this.ui.setPalCount(this.progress.creatures.length);
     this.ui.updatePalBook(this.progress.creatures, MEADOW_VOCAB);
 
+    this.showSpeechBubble('¡Hola! Soy Lumi.');
     await this.clips.speakAsync('lumi-hello', '¡Hola! Soy Lumi.');
+    this.showSpeechBubble('¿Listo? ¡Vamos!');
     await this.clips.speakAsync('lumi-ready', '¿Listo? ¡Vamos!');
+    this.hideSpeechBubble();
 
     const quest = this.questDir.start();
     this.spawnRound();
@@ -604,7 +607,7 @@ export class MainScene extends Phaser.Scene {
       return;
     }
 
-    this.evalCooldown = 0;
+    this.evalCooldown = 0.8;
     wo.active = false;
     this.sfx.play(result.outcome === 'progress' ? 'collect' : 'correct');
     this.burstConfetti(wo.x, wo.y);
