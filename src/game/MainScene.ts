@@ -234,7 +234,8 @@ export class MainScene extends Phaser.Scene {
     const lumiShadow = this.add.graphics();
     lumiShadow.fillStyle(0x000000, 0.15);
     lumiShadow.fillEllipse(0, 62, 80, 18);
-    const lumiImg = this.add.image(0, 0, 'lumi').setDisplaySize(130, 130);
+    this.textures.get('lumi').setFilter(Phaser.Textures.FilterMode.LINEAR);
+    const lumiImg = this.add.image(0, 0, 'lumi').setScale(130 / 1024);
     this.lumiContainer = this.add.container(LUMI_X, LUMI_Y, [lumiShadow, lumiImg]);
     this.lumiContainer.setDepth(10);
 
