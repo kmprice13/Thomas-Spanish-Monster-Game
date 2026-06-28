@@ -246,7 +246,7 @@ export class MainScene extends Phaser.Scene {
     playerShadow.fillEllipse(0, 62, 72, 18);
     const playerImg = this.add.image(0, 0, 'chars', 1).setDisplaySize(100, 133);
     this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, playerImg]);
-    this.playerContainer.setDepth(15);
+    this.playerContainer.setDepth(22);
 
     // ── Foreground grass tufts + flowers (depth 20 — in front of chars) ───
     const fgGfx = this.add.graphics();
