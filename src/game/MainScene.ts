@@ -174,8 +174,6 @@ export class MainScene extends Phaser.Scene {
     // ── Scene background image (depth -1) ────────────────────────────────
     // 1448×1086 source → exact 4:3 match for 800×600 canvas
     this.add.image(400, 300, 'bg').setDisplaySize(800, 600).setDepth(-1);
-    // DEBUG: bg at 130×130 to test renderer smoothing
-    this.add.image(80, 80, 'bg').setDisplaySize(130, 130).setDepth(99);
 
     // ── Animated water ripple rings around island ──────────────────────────
     for (let i = 0; i < 4; i++) {
