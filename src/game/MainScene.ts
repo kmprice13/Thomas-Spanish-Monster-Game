@@ -85,6 +85,8 @@ export class MainScene extends Phaser.Scene {
   private touchStartY   = 0;
   private touchDx       = 0;
   private touchDy       = 0;
+  private touchStickEl: HTMLElement | null = null;
+  private touchKnobEl:  HTMLElement | null = null;
 
   // ── Game state ────────────────────────────────────────────────────────────
   private phase: Phase = 'start';
@@ -286,16 +288,32 @@ export class MainScene extends Phaser.Scene {
       D: Phaser.Input.Keyboard.Key;
     };
 
-    // Touch joystick: left half of screen = move, tap anywhere = collect
+    // Touch joystick — floating: appears where thumb lands, knob follows the drag
+    this.touchStickEl = document.getElementById('touch-stick');
+    this.touchKnobEl  = document.getElementById('touch-knob');
+
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-      if (ptr.x < 400 && this.touchActiveId === -1) {
+      if (ptr.x < 480 && this.touchActiveId === -1) {
         this.touchActiveId = ptr.id;
         this.touchStartX   = ptr.x;
         this.touchStartY   = ptr.y;
         this.touchDx = 0;
         this.touchDy = 0;
+        // Position the stick circle at the thumb's landing point
+        if (this.touchStickEl) {
+          const cvs  = this.sys.game.canvas;
+          const rect = cvs.getBoundingClientRect();
+          const sx   = rect.left + (ptr.x / 800) * rect.width;
+          const sy   = rect.top  + (ptr.y / 600) * rect.height;
+          const r    = this.touchStickEl.offsetWidth / 2 || 70;
+          this.touchStickEl.style.position = 'fixed';
+          this.touchStickEl.style.left     = `${sx - r}px`;
+          this.touchStickEl.style.top      = `${sy - r}px`;
+          this.touchStickEl.style.display  = 'block';
+        }
       }
     });
+
     this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
       if (ptr.id !== this.touchActiveId) return;
       const dx  = ptr.x - this.touchStartX;
@@ -305,15 +323,34 @@ export class MainScene extends Phaser.Scene {
         this.touchDx = dx / Math.max(len, 40);
         this.touchDy = dy / Math.max(len, 40);
       }
+      // Move knob to match thumb offset (clamped to stick edge)
+      if (this.touchKnobEl && this.touchStickEl) {
+        const cvs    = this.sys.game.canvas;
+        const rect   = cvs.getBoundingClientRect();
+        const pxDx   = dx * (rect.width  / 800);
+        const pxDy   = dy * (rect.height / 600);
+        const maxR   = (this.touchStickEl.offsetWidth  / 2) -
+                       (this.touchKnobEl.offsetWidth   / 2);
+        const pxLen  = Math.sqrt(pxDx * pxDx + pxDy * pxDy);
+        const cx     = pxLen > maxR ? (pxDx / pxLen) * maxR : pxDx;
+        const cy     = pxLen > maxR ? (pxDy / pxLen) * maxR : pxDy;
+        this.touchKnobEl.style.transform =
+          `translate(calc(-50% + ${cx}px), calc(-50% + ${cy}px))`;
+      }
     });
+
     this.input.on('pointerup', (ptr: Phaser.Input.Pointer) => {
-      if (ptr.id === this.touchActiveId) {
+      const wasJoystick = ptr.id === this.touchActiveId;
+      if (wasJoystick) {
         this.touchActiveId = -1;
         this.touchDx = 0;
         this.touchDy = 0;
+        if (this.touchStickEl) this.touchStickEl.style.display = 'none';
+        if (this.touchKnobEl)  this.touchKnobEl.style.transform = 'translate(-50%, -50%)';
       }
-      // Tap to collect
-      if (this.phase === 'playing') {
+      // Tap-to-collect only fires from a DIFFERENT finger than the joystick,
+      // so two-thumb play (move + tap) works correctly on iPad
+      if (!wasJoystick && this.phase === 'playing') {
         for (const wo of this.worldObjects) {
           if (!wo.active) continue;
           const dx = ptr.x - wo.x;
@@ -324,6 +361,15 @@ export class MainScene extends Phaser.Scene {
           }
         }
       }
+    });
+
+    // Safety: if a finger leaves the canvas without firing pointerup, reset joystick
+    this.input.on('gameout', () => {
+      this.touchActiveId = -1;
+      this.touchDx = 0;
+      this.touchDy = 0;
+      if (this.touchStickEl) this.touchStickEl.style.display = 'none';
+      if (this.touchKnobEl)  this.touchKnobEl.style.transform = 'translate(-50%, -50%)';
     });
 
     // Pal book speak events

@@ -207,22 +207,21 @@ body {
 }
 
 /* ====================== Touch joystick ====================== */
+/* #touch-controls is just an inert wrapper; visibility is JS-controlled */
 #touch-controls {
-  position: absolute;
-  left: max(20px, env(safe-area-inset-left));
-  bottom: max(20px, env(safe-area-inset-bottom));
   display: none;
   pointer-events: none;
 }
 
+/* Stick is positioned via JS (position:fixed, left/top set at touch-start) */
 #touch-stick {
-  position: relative;
+  display: none;          /* shown by JS on first touch */
   width: clamp(110px, 30vw, 150px);
   aspect-ratio: 1;
   border-radius: 50%;
   background: rgba(255, 247, 233, 0.55);
   border: 4px solid rgba(255, 255, 255, 0.7);
-  pointer-events: auto;
+  pointer-events: none;   /* canvas handles all input; this is visual only */
   touch-action: none;
   box-shadow: var(--shadow);
 }
@@ -237,12 +236,7 @@ body {
   background: var(--coral);
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.15);
   transform: translate(-50%, -50%);
-}
-
-@media (pointer: coarse) {
-  #touch-controls {
-    display: block;
-  }
+  transition: transform 60ms linear;  /* tiny lag makes knob feel physical */
 }
 
 /* ====================== Overlays & panels ====================== */
