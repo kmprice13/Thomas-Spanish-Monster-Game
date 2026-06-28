@@ -36,12 +36,12 @@ body {
 
 #app {
   position: relative;
-}
-
-#game-canvas {
-  display: block;
   width: 100vw;
   height: 100dvh;
+}
+
+#app canvas {
+  display: block;
   outline: none;
   touch-action: none;
 }

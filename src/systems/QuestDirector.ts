@@ -25,7 +25,7 @@ import {
   type QuestKind,
   type SpokenLine,
 } from '../content/quests';
-import type { SelectionDescriptor } from '../entities/WorldObject';
+export interface SelectionDescriptor { vocabId: string; colorId?: string; }
 
 export interface Quest {
   kind: QuestKind;

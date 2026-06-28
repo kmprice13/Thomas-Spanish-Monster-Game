@@ -1,11 +1,18 @@
 import './styles.css';
-import { Game } from './game/Game';
+import Phaser from 'phaser';
+import { MainScene } from './game/MainScene';
 
-const canvas = document.querySelector<HTMLCanvasElement>('#game-canvas');
-if (!canvas) throw new Error('Missing #game-canvas');
-
-const game = new Game(canvas);
-
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => game.dispose());
-}
+new Phaser.Game({
+  type: Phaser.AUTO,
+  width: 800,
+  height: 600,
+  backgroundColor: '#3ab8e8',
+  scene: [MainScene],
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    parent: 'app',
+  },
+  input: { keyboard: true, touch: true, mouse: true },
+  render: { antialias: true, pixelArt: false },
+});

@@ -77,9 +77,14 @@ export class AudioClips {
     }
   }
 
-  /** Awaitable version — resolves after clip or TTS ends. */
+  /** Awaitable version — resolves after clip or TTS ends (with 7s safety timeout). */
   speakAsync(id: ClipId, fallbackText: string): Promise<void> {
-    return new Promise((resolve) => this.speak(id, fallbackText, { onEnd: resolve }));
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      const t = setTimeout(finish, 7000); // never hang longer than 7s
+      this.speak(id, fallbackText, { onEnd: () => { clearTimeout(t); finish(); } });
+    });
   }
 
   /** Stop all currently playing clips. */

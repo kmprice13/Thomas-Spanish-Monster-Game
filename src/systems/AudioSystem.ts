@@ -51,7 +51,7 @@ export class AudioSystem {
         this.arp([523, 659, 784], 0.1, 'triangle'); // C-E-G major
         break;
       case 'wrong':
-        this.blip(300, 0.16, 'sine', 0.05, 240); // soft downward "hmm?"
+        this.blip(500, 0.10, 'sine', 0.04, 380); // gentle "oops" glide, higher pitch
         break;
       case 'collect':
         this.arp([659, 988], 0.09, 'triangle');
