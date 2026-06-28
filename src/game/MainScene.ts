@@ -7,6 +7,7 @@ import { QuestDirector } from '../systems/QuestDirector';
 import { SpanishVoice } from '../systems/SpanishVoice';
 import { praise, nudge } from '../content/quests';
 import { MEADOW_VOCAB } from '../content/vocabulary';
+import { ACTIVE_COMMANDS, type CommandWord, type CommandAction } from '../content/commands';
 import type { VocabItem } from '../content/vocabulary';
 import { drawIsland } from '../drawing/drawIsland';
 import { drawRocksAndFlowers, drawForeground } from '../drawing/drawDecorations';
@@ -35,7 +36,7 @@ const ITEM_SCATTER: ReadonlyArray<{ x: number; y: number }> = [
   { x: 462, y: 485 },  // inner right
 ];
 
-type Phase = 'start' | 'introducing' | 'speaking' | 'playing' | 'celebrating' | 'hatching';
+type Phase = 'start' | 'introducing' | 'speaking' | 'playing' | 'celebrating' | 'hatching' | 'simon';
 
 interface WorldObj {
   x: number;
@@ -104,6 +105,9 @@ export class MainScene extends Phaser.Scene {
   private evalCooldown   = 0;
   private replayTimeout: ReturnType<typeof setTimeout> | null = null;
   private elapsed = 0;
+  private simonCounter   = 0;
+  private simonResolve: (() => void) | null = null;
+  private simonTarget: CommandAction | null = null;
 
   constructor() { super({ key: 'MainScene' }); }
 
@@ -751,6 +755,13 @@ export class MainScene extends Phaser.Scene {
 
   private async advanceQuest(): Promise<void> {
     this.clips.cancel();
+
+    // Every 4 vocab quests, run a Lumi Says interlude (2 commands)
+    this.simonCounter++;
+    if (this.simonCounter % 4 === 0) {
+      await this.runSimonInterlude();
+    }
+
     const { quest, event } = this.questDir.next();
 
     if (event.unlockedWord) {
@@ -901,6 +912,174 @@ export class MainScene extends Phaser.Scene {
         ease: 'Cubic.out',
         onComplete: () => g.destroy(),
       });
+    }
+  }
+
+  // ── Lumi Says (Simon) ─────────────────────────────────────────────────────
+
+  private async runSimonInterlude(): Promise<void> {
+    this.phase = 'simon';
+    this.hideSpeechBubble();
+
+    // Pick 2 random commands from the active batch
+    const shuffled = [...ACTIVE_COMMANDS].sort(() => Math.random() - 0.5);
+    const picks = shuffled.slice(0, 2);
+
+    this.showSpeechBubble('¡Lumi dice!');
+    await delay(900);
+
+    for (const cmd of picks) {
+      await this.runSimonCommand(cmd);
+      await delay(400);
+    }
+
+    this.hideSpeechBubble();
+    this.hideSimonTiles();
+  }
+
+  private async runSimonCommand(cmd: CommandWord): Promise<void> {
+    // 1. Lumi announces the command
+    this.showSpeechBubble(cmd.es);
+    this.sfx.play('tap');
+    this.npcBounceTimer = 0.6;
+    await this.clips.speakAsync(`simon-${cmd.id}`, cmd.es);
+
+    // 2. Lumi models the action
+    this.performAction('lumi', cmd.action);
+    await delay(1200);
+
+    // 3. Show tiles — wait for correct tap
+    this.showSimonTiles(cmd);
+    await this.waitForSimonAnswer();
+
+    // 4. Thomas mirrors it + praise
+    this.performAction('thomas', cmd.action);
+    this.sfx.play('correct');
+    await delay(700);
+
+    const line = praise(this.praiseIndex++);
+    this.ui.showBanner(line);
+    this.clips.speak(`praise-${this.praiseIndex % 6}`, line);
+    await delay(900);
+
+    this.hideSimonTiles();
+  }
+
+  private showSimonTiles(target: CommandWord): void {
+    this.simonTarget = target.action;
+
+    const overlay = document.getElementById('simon-overlay')!;
+    const prompt  = document.getElementById('simon-prompt')!;
+    prompt.textContent = target.es;
+    overlay.classList.remove('hidden');
+
+    ACTIVE_COMMANDS.forEach((cmd, i) => {
+      const tile  = document.getElementById(`simon-tile-${i}`)!;
+      const icon  = tile.querySelector('.simon-tile__icon')!;
+      const label = tile.querySelector('.simon-tile__label')!;
+      icon.textContent  = cmd.icon;
+      label.textContent = cmd.es;
+
+      tile.classList.remove('correct', 'wrong', 'pressed');
+      tile.onclick = () => this.onSimonTap(tile, cmd.action);
+    });
+  }
+
+  private onSimonTap(tile: HTMLElement, action: CommandAction): void {
+    if (action === this.simonTarget) {
+      tile.classList.add('correct');
+      this.simonResolve?.();
+      this.simonResolve = null;
+    } else {
+      tile.classList.add('wrong');
+      setTimeout(() => tile.classList.remove('wrong'), 380);
+      this.sfx.play('wrong');
+      this.performAction('lumi', this.simonTarget!);
+    }
+  }
+
+  private waitForSimonAnswer(): Promise<void> {
+    return new Promise(resolve => { this.simonResolve = resolve; });
+  }
+
+  private hideSimonTiles(): void {
+    document.getElementById('simon-overlay')!.classList.add('hidden');
+    this.simonTarget  = null;
+    this.simonResolve = null;
+  }
+
+  private performAction(who: 'lumi' | 'thomas', action: CommandAction): void {
+    const container = who === 'lumi' ? this.lumiContainer : this.playerContainer;
+    const baseX = who === 'lumi' ? LUMI_X : this.playerX;
+    const baseY = who === 'lumi' ? LUMI_Y : this.playerY;
+    this.tweens.killTweensOf(container);
+
+    switch (action) {
+      case 'sit':
+        this.tweens.add({
+          targets: container,
+          scaleY: 0.62, y: baseY + 18,
+          duration: 280, ease: 'Back.out',
+          onComplete: () => this.tweens.add({
+            targets: container, scaleY: 1, y: baseY,
+            duration: 260, delay: 900, ease: 'Back.out',
+          }),
+        });
+        break;
+      case 'stand':
+        this.tweens.add({
+          targets: container,
+          y: baseY - 22,
+          duration: 200, ease: 'Sine.out', yoyo: true,
+        });
+        break;
+      case 'listen':
+        this.tweens.add({
+          targets: container,
+          angle: 14,
+          duration: 280, ease: 'Sine.inOut', yoyo: true, repeat: 2,
+          onComplete: () => { container.angle = 0; },
+        });
+        break;
+      case 'look':
+        this.tweens.add({
+          targets: container,
+          scaleX: 1.12, scaleY: 1.12,
+          duration: 200, ease: 'Sine.out', yoyo: true, repeat: 1,
+        });
+        break;
+      case 'write':
+        this.tweens.add({
+          targets: container,
+          props: { x: { value: baseX + 5, duration: 60, ease: 'Sine.inOut', yoyo: true, repeat: 5 } },
+          onComplete: () => { container.x = baseX; },
+        });
+        break;
+      case 'draw':
+        this.tweens.add({
+          targets: container,
+          props: {
+            x: { value: baseX + 6, duration: 120, ease: 'Sine.inOut', yoyo: true, repeat: 3 },
+            y: { value: baseY - 4, duration: 120, ease: 'Sine.inOut', yoyo: true, repeat: 3 },
+          },
+          onComplete: () => { container.x = baseX; container.y = baseY; },
+        });
+        break;
+      case 'walk':
+        this.tweens.add({
+          targets: container,
+          x: baseX + 28,
+          duration: 260, ease: 'Sine.inOut', yoyo: true, repeat: 2,
+          onComplete: () => { container.x = baseX; },
+        });
+        break;
+      case 'stop':
+        this.tweens.add({
+          targets: container,
+          scaleX: 1.22, scaleY: 1.22,
+          duration: 120, ease: 'Sine.out', yoyo: true,
+        });
+        break;
     }
   }
 }
