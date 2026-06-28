@@ -322,9 +322,11 @@ body {
   box-shadow: 0 18px 0 rgba(0, 0, 0, 0.18);
 }
 
-.start-monster {
-  font-size: 5rem;
+.start-lumi {
+  width: 140px;
+  height: auto;
   animation: bob 2.2s ease-in-out infinite;
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.18));
 }
 
 @keyframes bob {
@@ -633,7 +635,7 @@ body {
 }
 
 /* ====================== Calm mode ====================== */
-body.calm .start-monster,
+body.calm .start-lumi,
 body.calm #banner.show,
 body.calm #toast.show,
 body.calm #quest-card.speaking .replay-wave {

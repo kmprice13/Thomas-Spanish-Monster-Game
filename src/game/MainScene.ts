@@ -115,12 +115,6 @@ export class MainScene extends Phaser.Scene {
       frameWidth: 384,
       frameHeight: 341,
     });
-    // Two characters side-by-side: frame 0 = Lumi (blue), frame 1 = Thomas (orange)
-    // characters_fixed.png has interior transparent holes (teeth) filled with white
-    this.load.spritesheet('chars', 'assets/characters_fixed.png', {
-      frameWidth: 768,
-      frameHeight: 1024,
-    });
     // Palm tree — white bg removed by process-palm-tree.mjs
     this.load.image('palm', 'assets/palm_tree_alpha.png');
     // Scene background
@@ -129,6 +123,9 @@ export class MainScene extends Phaser.Scene {
     this.load.image('chispa', 'assets/chispa_base.png');
     // Thomas — grayscale base, tinted in-game to the player's chosen color
     this.load.image('thomas', 'assets/thomas_base.png');
+    // Lumi — colored NPC sprite + portrait for start screen
+    this.load.image('lumi', 'assets/lumi_base.png');
+    this.load.image('lumi-portrait', 'assets/lumi_portrait.png');
   }
 
   create(): void {
@@ -233,11 +230,11 @@ export class MainScene extends Phaser.Scene {
       });
     });
 
-    // ── Lumi (NPC) — frame 0, blue axolotl ───────────────────────────────
+    // ── Lumi (NPC) ────────────────────────────────────────────────────────
     const lumiShadow = this.add.graphics();
     lumiShadow.fillStyle(0x000000, 0.15);
-    lumiShadow.fillEllipse(0, 60, 72, 18);
-    const lumiImg = this.add.image(0, 0, 'chars', 0).setDisplaySize(100, 133);
+    lumiShadow.fillEllipse(0, 60, 90, 18);
+    const lumiImg = this.add.image(0, 0, 'lumi').setDisplaySize(150, 100);
     this.lumiContainer = this.add.container(LUMI_X, LUMI_Y, [lumiShadow, lumiImg]);
     this.lumiContainer.setDepth(10);
 
@@ -253,18 +250,15 @@ export class MainScene extends Phaser.Scene {
     this.speechBubbleGfx.setVisible(false);
     this.speechBubbleText.setVisible(false);
 
-    // ── Thomas (player) ───────────────────────────────────────────────────────
-    // Using chars frame 1 until smooth grayscale art is ready for color picker.
-    // thomas_base.png + setTint() is already wired up — swap the two lines below
-    // once smooth art replaces thomas_base.png.
+    // ── Thomas (player) — grayscale base tinted to player's chosen color ────
     const playerShadow = this.add.graphics();
     playerShadow.fillStyle(0x000000, 0.15);
-    playerShadow.fillEllipse(0, 62, 72, 18);
-    this.playerImg = this.add.image(0, 0, 'chars', 1).setDisplaySize(100, 133);
-    // this.playerImg = this.add.image(0,0,'thomas').setDisplaySize(108,88).setTint(this.progress.settings.playerColor);
+    playerShadow.fillEllipse(0, 65, 80, 18);
+    this.playerImg = this.add.image(0, 0, 'thomas').setDisplaySize(120, 130)
+      .setTint(this.progress.settings.playerColor);
     this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, this.playerImg]);
     this.playerContainer.setDepth(22);
-    this.playerContainer.setSize(100, 133); // explicit bounds so Phaser never culls via 0×0 graphics child
+    this.playerContainer.setSize(120, 130); // explicit bounds so Phaser never culls via 0×0 graphics child
 
     // Carry icon — floats above Thomas during give quests, hidden otherwise
     this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab', 0)
