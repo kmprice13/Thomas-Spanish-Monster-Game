@@ -247,6 +247,7 @@ export class MainScene extends Phaser.Scene {
     const playerImg = this.add.image(0, 0, 'chars', 1).setDisplaySize(100, 133);
     this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, playerImg]);
     this.playerContainer.setDepth(22);
+    this.playerContainer.setSize(100, 133); // explicit bounds so Phaser never culls via 0×0 graphics child
 
     // ── Foreground grass tufts + flowers (depth 20 — in front of chars) ───
     const fgGfx = this.add.graphics();
@@ -377,6 +378,11 @@ export class MainScene extends Phaser.Scene {
         const d = Math.sqrt(d2);
         this.playerX = ISLAND_CX + (edx / d) * PLAY_SA;
         this.playerY = ISLAND_CY + (edy / d) * PLAY_SB;
+        // Remove the outward velocity component so Thomas doesn't stick/jitter at the wall
+        const nx = (edx / d) / PLAY_SA;
+        const ny = (edy / d) / PLAY_SB;
+        const dot = this.velX * nx + this.velY * ny;
+        if (dot > 0) { this.velX -= dot * nx; this.velY -= dot * ny; }
       }
 
       const speed = Math.sqrt(this.velX ** 2 + this.velY ** 2);
@@ -496,7 +502,10 @@ export class MainScene extends Phaser.Scene {
     this.phase = 'speaking';
     this.ui.setQuest(quest.kind, true);
     this.npcBounceTimer = 0.6;
-    this.showSpeechBubble(quest.target.say);
+    const bubbleText = quest.kind === 'color' && quest.color
+      ? `${quest.target.say} ${quest.target.article === 'la' ? quest.color.esFem : quest.color.es}`
+      : quest.target.say;
+    this.showSpeechBubble(bubbleText);
     this.clips.speak(`${kind}-${quest.target.id}`, quest.line.text, {
       onEnd: () => {
         if (this.phase === 'speaking') {
