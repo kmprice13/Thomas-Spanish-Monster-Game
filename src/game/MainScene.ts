@@ -65,6 +65,8 @@ export class MainScene extends Phaser.Scene {
   private speechBubbleGfx!: Phaser.GameObjects.Graphics;
   private speechBubbleText!: Phaser.GameObjects.Text;
   private worldObjects: WorldObj[] = [];
+  private carryIcon!: Phaser.GameObjects.Image;   // item floating above Thomas while carrying
+  private lumiPulseRing!: Phaser.GameObjects.Graphics; // pulsing ring under Lumi during give quest
 
   // ── Player physics ────────────────────────────────────────────────────────
   private playerX = PLAYER_START_X;
@@ -252,6 +254,14 @@ export class MainScene extends Phaser.Scene {
     this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, playerImg]);
     this.playerContainer.setDepth(22);
     this.playerContainer.setSize(100, 133); // explicit bounds so Phaser never culls via 0×0 graphics child
+
+    // Carry icon — floats above Thomas during give quests, hidden otherwise
+    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab', 0)
+      .setDisplaySize(44, 39).setDepth(23).setVisible(false);
+
+    // Pulse ring under Lumi — visible during give quest carry phase
+    this.lumiPulseRing = this.add.graphics().setDepth(9);
+    this.lumiPulseRing.setVisible(false);
 
     // ── Foreground grass tufts + flowers (depth 20 — in front of chars) ───
     const fgGfx = this.add.graphics();
@@ -456,11 +466,24 @@ export class MainScene extends Phaser.Scene {
         }
       }
 
-      // Give-quest delivery
-      if (this.questDir.quest.kind === 'give' && this.questDir.quest.carrying) {
+      // Give-quest delivery + carry indicator
+      const isCarrying = this.questDir.quest.kind === 'give' && this.questDir.quest.carrying;
+      if (isCarrying) {
         const dx = this.playerX - LUMI_X;
         const dy = this.playerY - LUMI_Y;
         if (Math.sqrt(dx * dx + dy * dy) < DELIVERY_RADIUS) this.onDelivery();
+      }
+      // Keep carry icon above Thomas and pulse ring under Lumi in sync
+      this.carryIcon.setVisible(isCarrying);
+      if (isCarrying) {
+        this.carryIcon.setPosition(this.playerX, this.playerY - 88 + Math.sin(this.elapsed * 4) * 4);
+      }
+      this.lumiPulseRing.setVisible(isCarrying);
+      if (isCarrying) {
+        this.lumiPulseRing.clear();
+        const pulse = 0.55 + Math.sin(this.elapsed * 5) * 0.35;
+        this.lumiPulseRing.lineStyle(4, 0xffe66d, pulse);
+        this.lumiPulseRing.strokeCircle(LUMI_X, LUMI_Y + 20, 52);
       }
 
       // Hint rings after 3 wrong answers
@@ -656,6 +679,14 @@ export class MainScene extends Phaser.Scene {
 
     if (!correct) {
       this.sfx.play('wrong');
+      // Shake Thomas left-right
+      this.tweens.add({
+        targets: this.playerContainer,
+        x: { from: this.playerX - 8, to: this.playerX },
+        duration: 320, ease: 'Sine.InOut', yoyo: false,
+        onStart: () => { this.playerContainer.x = this.playerX - 8; },
+        props: { x: { value: this.playerX, duration: 40, ease: 'Sine.InOut', yoyo: true, repeat: 4 } },
+      });
       this.evalCooldown = 0.9;
       this.nudgeIndex++;
       this.wrongCount++;
@@ -670,6 +701,11 @@ export class MainScene extends Phaser.Scene {
     this.evalCooldown = 0.8;
     wo.active = false;
     this.sfx.play(result.outcome === 'progress' ? 'collect' : 'correct');
+    // Wiggle Thomas on correct
+    this.tweens.add({
+      targets: this.playerContainer,
+      props: { scaleX: { value: 1.18, duration: 80, ease: 'Sine.Out', yoyo: true, repeat: 2 } },
+    });
     this.burstConfetti(wo.x, wo.y);
 
     this.tweens.add({
@@ -680,6 +716,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     if (result.outcome === 'pickup') {
+      this.carryIcon.setFrame(ITEM_FRAME[wo.vocab.model]);
       this.clips.speak(`carrying-${wo.vocab.id}`, `¡Sí! Dale ${wo.vocab.say} a Lumi.`);
       return;
     }
@@ -688,6 +725,8 @@ export class MainScene extends Phaser.Scene {
 
   private onDelivery(): void {
     if (this.phase !== 'playing' || !this.questDir.deliver()) return;
+    this.carryIcon.setVisible(false);
+    this.lumiPulseRing.setVisible(false);
     this.sfx.play('correct');
     this.burstConfetti(LUMI_X, LUMI_Y);
     this.onQuestComplete();

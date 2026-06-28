@@ -41,8 +41,12 @@ export function giveLine(item: VocabItem, npcName: string): SpokenLine {
   return { text: `Dale ${item.say} a ${npcName}.` };
 }
 
-/** "Encuentra tres fresas." — introduces numbers + plurals. */
+/** "Encuentra tres fresas." / "Encuentra un pez." — numbers + plurals + gender on 1. */
 export function countLine(item: VocabItem, num: NumberWord): SpokenLine {
+  if (num.value === 1) {
+    const article = item.article === 'el' ? 'un' : 'una';
+    return { text: `Encuentra ${article} ${item.es}.` };
+  }
   return { text: `Encuentra ${num.es} ${item.plural}.` };
 }
 
