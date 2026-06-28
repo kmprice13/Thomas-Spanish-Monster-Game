@@ -30,6 +30,7 @@ export interface GameSettings {
   reducedMotion: boolean;
   muted: boolean;
   slowSpeech: boolean;
+  playerColor: number; // hex tint applied to grayscale Thomas sprite (0 = default orange)
 }
 
 /** Per-word SRS state. */
@@ -147,7 +148,7 @@ function defaultData(): ProgressData {
     secondsPlayed: 0,
     words: {},
     creatures: [],
-    settings: { reducedMotion: false, muted: false, slowSpeech: false },
+    settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColor: 0xff6b35 },
   };
 }
 

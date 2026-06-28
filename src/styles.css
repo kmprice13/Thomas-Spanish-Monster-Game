@@ -434,6 +434,43 @@ body {
   text-shadow: none;
 }
 
+/* ====================== Color picker ====================== */
+.color-swatch-row {
+  padding: 12px 8px 8px;
+  border-bottom: 2px dashed #ecdcc0;
+}
+
+.swatch-label {
+  display: block;
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.swatch-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  box-shadow: 0 3px 0 rgba(0,0,0,0.18);
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.swatch:active { transform: scale(0.9); }
+
+.swatch.active {
+  border-color: #3a1800;
+  transform: scale(1.18);
+  box-shadow: 0 0 0 3px #fff, 0 0 0 5px #3a1800;
+}
+
 /* ====================== Settings ====================== */
 .toggle-row {
   display: flex;

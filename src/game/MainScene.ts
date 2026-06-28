@@ -67,6 +67,7 @@ export class MainScene extends Phaser.Scene {
   private worldObjects: WorldObj[] = [];
   private carryIcon!: Phaser.GameObjects.Image;   // item floating above Thomas while carrying
   private lumiPulseRing!: Phaser.GameObjects.Graphics; // pulsing ring under Lumi during give quest
+  private playerImg!: Phaser.GameObjects.Image;   // Thomas sprite — tint updated by color picker
 
   // ── Player physics ────────────────────────────────────────────────────────
   private playerX = PLAYER_START_X;
@@ -126,6 +127,8 @@ export class MainScene extends Phaser.Scene {
     this.load.image('bg', 'assets/bg.png');
     // Chispa collectible creature
     this.load.image('chispa', 'assets/chispa_base.png');
+    // Thomas — grayscale base, tinted in-game to the player's chosen color
+    this.load.image('thomas', 'assets/thomas_base.png');
   }
 
   create(): void {
@@ -159,13 +162,17 @@ export class MainScene extends Phaser.Scene {
         this.progress.setSettings({ slowSpeech: s });
       },
       onCalmChange: (c) => { this.progress.setSettings({ reducedMotion: c }); },
+      onColorChange: (hex) => {
+        this.progress.setSettings({ playerColor: hex });
+        if (this.playerImg) this.playerImg.setTint(hex);
+      },
     });
 
     const { muted, slowSpeech, reducedMotion } = this.progress.settings;
     this.sfx.setMuted(muted);
     this.clips.setMuted(muted);
     if (slowSpeech) this.voice.setBaseRate(0.72);
-    this.ui.applySettings(muted, slowSpeech, reducedMotion);
+    this.ui.applySettings(muted, slowSpeech, reducedMotion, this.progress.settings.playerColor);
 
     // ── Scene background image (depth -1) ────────────────────────────────
     // 1448×1086 source → exact 4:3 match for 800×600 canvas
@@ -246,12 +253,13 @@ export class MainScene extends Phaser.Scene {
     this.speechBubbleGfx.setVisible(false);
     this.speechBubbleText.setVisible(false);
 
-    // ── Thomas (player) — frame 1, orange axolotl ─────────────────────────
+    // ── Thomas (player) — grayscale axolotl tinted to player's chosen color ──
     const playerShadow = this.add.graphics();
     playerShadow.fillStyle(0x000000, 0.15);
     playerShadow.fillEllipse(0, 62, 72, 18);
-    const playerImg = this.add.image(0, 0, 'chars', 1).setDisplaySize(100, 133);
-    this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, playerImg]);
+    this.playerImg = this.add.image(0, 0, 'thomas').setDisplaySize(108, 88)
+      .setTint(this.progress.settings.playerColor);
+    this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, this.playerImg]);
     this.playerContainer.setDepth(22);
     this.playerContainer.setSize(100, 133); // explicit bounds so Phaser never culls via 0×0 graphics child
 

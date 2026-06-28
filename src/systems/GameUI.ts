@@ -18,6 +18,7 @@ export interface UICallbacks {
   onMuteChange: (muted: boolean) => void;
   onSlowChange: (slow: boolean) => void;
   onCalmChange: (calm: boolean) => void;
+  onColorChange: (hex: number) => void;
 }
 
 export class GameUI {
@@ -58,6 +59,41 @@ export class GameUI {
 
     this.grownupsButton.addEventListener('click', () => this.openParentGate());
 
+    // Color picker swatches — injected into settings panel
+    const COLORS: Array<{ label: string; hex: number; css: string }> = [
+      { label: 'Naranja',  hex: 0xff6b35, css: '#ff6b35' },
+      { label: 'Rojo',     hex: 0xe2483a, css: '#e2483a' },
+      { label: 'Azul',     hex: 0x4d8cff, css: '#4d8cff' },
+      { label: 'Verde',    hex: 0x6abf4b, css: '#6abf4b' },
+      { label: 'Morado',   hex: 0xb06cff, css: '#b06cff' },
+      { label: 'Rosa',     hex: 0xff7eb6, css: '#ff7eb6' },
+      { label: 'Amarillo', hex: 0xffd23f, css: '#ffd23f' },
+      { label: 'Turquesa', hex: 0x2ec5c1, css: '#2ec5c1' },
+    ];
+    const swatchRow = document.createElement('div');
+    swatchRow.className = 'color-swatch-row';
+    swatchRow.innerHTML = '<span class="swatch-label">🎨 Color de Thomas</span>';
+    const swatchGrid = document.createElement('div');
+    swatchGrid.className = 'swatch-grid';
+    COLORS.forEach(({ label, hex, css }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'swatch';
+      btn.style.background = css;
+      btn.setAttribute('aria-label', label);
+      btn.dataset.hex = String(hex);
+      btn.addEventListener('click', () => {
+        swatchGrid.querySelectorAll('.swatch').forEach(s => s.classList.remove('active'));
+        btn.classList.add('active');
+        cbs.onColorChange(hex);
+      });
+      swatchGrid.appendChild(btn);
+    });
+    swatchRow.appendChild(swatchGrid);
+    const settingsPanel = document.querySelector('#settings-panel .panel');
+    const grownupsBtn = document.getElementById('grownups-button');
+    if (settingsPanel && grownupsBtn) settingsPanel.insertBefore(swatchRow, grownupsBtn);
+
     // Close buttons (data-close="panel-id")
     document.querySelectorAll('[data-close]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -88,11 +124,16 @@ export class GameUI {
     this.palButton.querySelector('.hud-chip__icon')!.textContent = n > 0 ? '✨' : '🥚';
   }
 
-  applySettings(muted: boolean, slow: boolean, calm: boolean): void {
+  applySettings(muted: boolean, slow: boolean, calm: boolean, playerColor?: number): void {
     this.setSound.checked = !muted;
     this.setSlow.checked = slow;
     this.setCalm.checked = calm;
     document.body.classList.toggle('calm', calm);
+    if (playerColor !== undefined) {
+      document.querySelectorAll<HTMLElement>('.swatch').forEach(s => {
+        s.classList.toggle('active', Number(s.dataset.hex) === playerColor);
+      });
+    }
   }
 
   /** Pop the celebration banner (¡Sí! ¡Muy bien! etc.). Clears after 1s. */
