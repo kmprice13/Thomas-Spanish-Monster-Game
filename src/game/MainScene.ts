@@ -9,25 +9,31 @@ import { praise, nudge } from '../content/quests';
 import { MEADOW_VOCAB } from '../content/vocabulary';
 import type { VocabItem } from '../content/vocabulary';
 import { drawIsland } from '../drawing/drawIsland';
-import { drawCharacter } from '../drawing/drawCharacter';
-import { drawItem, drawBadge } from '../drawing/drawItem';
+import { drawRocksAndFlowers, drawForeground } from '../drawing/drawDecorations';
+import { drawBadge, ITEM_FRAME } from '../drawing/drawItem';
 
 // ── Layout (800×600 logical canvas) ──────────────────────────────────────────
 const ISLAND_CX      = 400;
-const ISLAND_CY      = 310;
+const ISLAND_CY      = 375;   // shifted down 65px to sit in ocean (not sky)
 const PLAY_SA        = 205;   // play area ellipse semi-axis X
 const PLAY_SB        = 130;   // play area ellipse semi-axis Y
 const LUMI_X         = 400;
-const LUMI_Y         = 175;
+const LUMI_Y         = 240;   // ISLAND_CY - 135
 const PLAYER_START_X = 400;
-const PLAYER_START_Y = 295;
+const PLAYER_START_Y = 360;   // ISLAND_CY - 15
 const PLAYER_SPEED   = 160;   // px/s
 const COLLECT_RADIUS = 38;    // px proximity to collect
 const DELIVERY_RADIUS = 48;   // px proximity to Lumi for give quests
-const ITEM_ARC_CX    = 400;
-const ITEM_ARC_CY    = 348;
-const ITEM_ARC_R     = 88;
-const ITEM_ARC_SPAN  = Math.PI * 0.85; // ~153°
+// Natural scatter positions — offset by +65 from original to match ISLAND_CY=375
+const ITEM_SCATTER: ReadonlyArray<{ x: number; y: number }> = [
+  { x: 255, y: 437 },  // lower-left (near rock cluster)
+  { x: 545, y: 437 },  // lower-right (near rock cluster)
+  { x: 215, y: 383 },  // far left
+  { x: 585, y: 383 },  // far right
+  { x: 400, y: 505 },  // bottom center
+  { x: 338, y: 485 },  // inner left
+  { x: 462, y: 485 },  // inner right
+];
 
 type Phase = 'start' | 'introducing' | 'speaking' | 'playing' | 'celebrating' | 'hatching';
 
@@ -98,6 +104,24 @@ export class MainScene extends Phaser.Scene {
 
   // ── Phaser lifecycle ──────────────────────────────────────────────────────
 
+  preload(): void {
+    // 4-col × 3-row sprite sheet, white bg removed by make-sprites-alpha.mjs
+    this.load.spritesheet('vocab', 'assets/vocab_sheet_alpha.png', {
+      frameWidth: 384,
+      frameHeight: 341,
+    });
+    // Two characters side-by-side: frame 0 = Lumi (blue), frame 1 = Thomas (orange)
+    // characters_fixed.png has interior transparent holes (teeth) filled with white
+    this.load.spritesheet('chars', 'assets/characters_fixed.png', {
+      frameWidth: 768,
+      frameHeight: 1024,
+    });
+    // Palm tree — white bg removed by process-palm-tree.mjs
+    this.load.image('palm', 'assets/palm_tree_alpha.png');
+    // Scene background
+    this.load.image('bg', 'assets/bg.png');
+  }
+
   create(): void {
     // Systems
     this.sfx      = new AudioSystem();
@@ -137,40 +161,115 @@ export class MainScene extends Phaser.Scene {
     if (slowSpeech) this.voice.setBaseRate(0.72);
     this.ui.applySettings(muted, slowSpeech, reducedMotion);
 
-    // Ocean gradient background
-    const bgGfx = this.add.graphics();
-    bgGfx.fillGradientStyle(0x70d5f5, 0x70d5f5, 0x0e5fa0, 0x0e5fa0, 1, 1, 1, 1);
-    bgGfx.fillRect(0, 0, 800, 600);
-    bgGfx.setDepth(-1);
+    // ── Scene background image (depth -1) ────────────────────────────────
+    // 1448×1086 source → exact 4:3 match for 800×600 canvas
+    this.add.image(400, 300, 'bg').setDisplaySize(800, 600).setDepth(-1);
 
-    // Island background (drawn once, static)
+    // ── Animated water ripple rings around island ──────────────────────────
+    for (let i = 0; i < 4; i++) {
+      const ringGfx = this.add.graphics();
+      ringGfx.x = ISLAND_CX;
+      ringGfx.y = ISLAND_CY;
+      ringGfx.lineStyle(3 - i * 0.4, 0xb8e8ff, 1);
+      ringGfx.strokeEllipse(0, 0, 548 + i * 22, 352 + i * 14);
+      ringGfx.setDepth(-0.5);
+      this.tweens.add({
+        targets: ringGfx,
+        alpha:  { from: 0.55, to: 0 },
+        scaleX: { from: 1.0,  to: 1.10 },
+        scaleY: { from: 1.0,  to: 1.10 },
+        duration: 2200,
+        repeat: -1,
+        delay: i * 550,
+        ease: 'Sine.easeIn',
+      });
+    }
+
+    // ── Island terrain (depth 0) ───────────────────────────────────────────
     const islandGfx = this.add.graphics();
     drawIsland(islandGfx, ISLAND_CX, ISLAND_CY);
     islandGfx.setDepth(0);
 
-    // Lumi
-    const lumiGfx = this.add.graphics();
-    drawCharacter(lumiGfx, 'lumi');
-    this.lumiContainer = this.add.container(LUMI_X, LUMI_Y, [lumiGfx]);
+    // ── Rocks, flowers, bushes, foam (depth 3) ────────────────────────────
+    const decoGfx = this.add.graphics();
+    drawRocksAndFlowers(decoGfx, ISLAND_CX, ISLAND_CY);
+    decoGfx.setDepth(3);
+
+    // ── Palm trees with sway animation (depth 2) ──────────────────────────
+    const palmPositions = [
+      { x: 298, y: 265 },
+      { x: 502, y: 265 },
+      { x: 400, y: 243 },
+    ];
+    palmPositions.forEach(({ x, y }, i) => {
+      const palm = this.add.image(x, y, 'palm').setDisplaySize(85, 77).setDepth(2);
+      // Shadow under each tree
+      const palmShadow = this.add.graphics();
+      palmShadow.fillStyle(0x000000, 0.12);
+      palmShadow.fillEllipse(x + 5, y + 40, 70, 18);
+      palmShadow.setDepth(1);
+      // Sway tween
+      this.tweens.add({
+        targets: palm,
+        angle: { from: -3, to: 3 },
+        yoyo: true,
+        repeat: -1,
+        duration: 1900 + i * 380,
+        ease: 'Sine.easeInOut',
+        delay: i * 550,
+      });
+    });
+
+    // ── Lumi (NPC) — frame 0, blue axolotl ───────────────────────────────
+    const lumiShadow = this.add.graphics();
+    lumiShadow.fillStyle(0x000000, 0.15);
+    lumiShadow.fillEllipse(0, 60, 72, 18);
+    const lumiImg = this.add.image(0, 0, 'chars', 0).setDisplaySize(100, 133);
+    this.lumiContainer = this.add.container(LUMI_X, LUMI_Y, [lumiShadow, lumiImg]);
     this.lumiContainer.setDepth(10);
 
     // Speech bubble (child of lumiContainer — bobs with Lumi)
     this.speechBubbleGfx = this.add.graphics();
-    this.speechBubbleText = this.add.text(0, -88, '', {
-      fontSize: '20px',
+    this.speechBubbleText = this.add.text(0, -98, '', {
+      fontSize: '22px',
       fontFamily: '"Nunito", "Quicksand", "Arial Rounded MT Bold", system-ui, sans-serif',
-      color: '#3a2e4a',
+      color: '#5a3200',
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
     this.lumiContainer.add([this.speechBubbleGfx, this.speechBubbleText]);
     this.speechBubbleGfx.setVisible(false);
     this.speechBubbleText.setVisible(false);
 
-    // Thomas (player)
-    const playerGfx = this.add.graphics();
-    drawCharacter(playerGfx, 'thomas');
-    this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerGfx]);
+    // ── Thomas (player) — frame 1, orange axolotl ─────────────────────────
+    const playerShadow = this.add.graphics();
+    playerShadow.fillStyle(0x000000, 0.15);
+    playerShadow.fillEllipse(0, 62, 72, 18);
+    const playerImg = this.add.image(0, 0, 'chars', 1).setDisplaySize(100, 133);
+    this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, playerImg]);
     this.playerContainer.setDepth(15);
+
+    // ── Foreground grass tufts + flowers (depth 20 — in front of chars) ───
+    const fgGfx = this.add.graphics();
+    drawForeground(fgGfx, ISLAND_CX, ISLAND_CY);
+    fgGfx.setDepth(20);
+    this.tweens.add({
+      targets: fgGfx,
+      y: '+=3',
+      yoyo: true,
+      repeat: -1,
+      duration: 2600,
+      ease: 'Sine.easeInOut',
+    });
+
+    // Ambient decoration bob (rocks/flowers layer very slightly pulses)
+    this.tweens.add({
+      targets: decoGfx,
+      y: '+=1',
+      yoyo: true,
+      repeat: -1,
+      duration: 3800,
+      ease: 'Sine.easeInOut',
+    });
 
     // Keyboard
     this.cursors = this.input.keyboard!.createCursorKeys();
@@ -336,13 +435,13 @@ export class MainScene extends Phaser.Scene {
     for (const wo of this.worldObjects) {
       if (wo.spotlit) {
         wo.spotGfx.clear();
-        wo.spotGfx.lineStyle(3, 0x2ec5c1, 0.75 + Math.sin(this.elapsed * 3) * 0.2);
-        wo.spotGfx.strokeCircle(0, 0, 30 + Math.sin(this.elapsed * 3) * 3);
+        wo.spotGfx.lineStyle(3.5, 0x2ec5c1, 0.75 + Math.sin(this.elapsed * 3) * 0.2);
+        wo.spotGfx.strokeCircle(0, 0, 36 + Math.sin(this.elapsed * 3) * 3);
       }
       if (wo.highlighted) {
         wo.hintGfx.clear();
-        wo.hintGfx.lineStyle(3, 0xffe66d, 0.55 + Math.sin(this.elapsed * 5) * 0.2);
-        wo.hintGfx.strokeCircle(0, 0, 34 + Math.sin(this.elapsed * 5) * 3);
+        wo.hintGfx.lineStyle(3.5, 0xffe66d, 0.55 + Math.sin(this.elapsed * 5) * 0.2);
+        wo.hintGfx.strokeCircle(0, 0, 42 + Math.sin(this.elapsed * 5) * 3);
       }
     }
 
@@ -413,26 +512,45 @@ export class MainScene extends Phaser.Scene {
     this.worldObjects = [];
 
     const specs = this.questDir.buildSpawnSet(7);
-    const n = specs.length;
 
     specs.forEach((spec, i) => {
-      const t     = n > 1 ? i / (n - 1) : 0.5;
-      const angle = (t - 0.5) * ITEM_ARC_SPAN;
-      const wx    = ITEM_ARC_CX + Math.sin(angle) * ITEM_ARC_R;
-      const wy    = ITEM_ARC_CY + Math.cos(angle) * ITEM_ARC_R;
+      const pos = ITEM_SCATTER[i] ?? ITEM_SCATTER[ITEM_SCATTER.length - 1];
+      const wx  = pos.x;
+      const wy  = pos.y;
 
       const badgeGfx = this.add.graphics();
       drawBadge(badgeGfx);
 
-      const itemGfx = this.add.graphics();
-      drawItem(itemGfx, spec.vocab.model, spec.colorOverride ?? spec.vocab.color, spec.vocab.accent);
+      const frameIdx = ITEM_FRAME[spec.vocab.model];
+      const itemImg  = this.add.image(0, 0, 'vocab', frameIdx).setDisplaySize(66, 58);
+      if (spec.colorOverride !== undefined) itemImg.setTint(spec.colorOverride);
 
       const spotGfx = this.add.graphics();
       const hintGfx = this.add.graphics();
 
-      // Order: badge behind hint/spot rings, item on top
-      const container = this.add.container(wx, wy, [badgeGfx, hintGfx, spotGfx, itemGfx]);
+      const container = this.add.container(wx, wy, [badgeGfx, hintGfx, spotGfx, itemImg]);
       container.setDepth(5 + i * 0.1);
+
+      // Entrance pop animation
+      container.setScale(0.1);
+      this.tweens.add({
+        targets: container,
+        scaleX: 1, scaleY: 1,
+        duration: 380,
+        delay: i * 80,
+        ease: 'Back.out',
+      });
+
+      // Gentle float (each item at a slightly different phase)
+      this.tweens.add({
+        targets: container,
+        y: `+=${3 + (i % 3)}`,
+        yoyo: true,
+        repeat: -1,
+        duration: 1600 + i * 200,
+        ease: 'Sine.easeInOut',
+        delay: i * 120,
+      });
 
       this.worldObjects.push({
         x: wx, y: wy,
@@ -449,13 +567,13 @@ export class MainScene extends Phaser.Scene {
   private redrawRings(wo: WorldObj): void {
     wo.spotGfx.clear();
     if (wo.spotlit) {
-      wo.spotGfx.lineStyle(3, 0x2ec5c1, 0.8);
-      wo.spotGfx.strokeCircle(0, 0, 30);
+      wo.spotGfx.lineStyle(3.5, 0x2ec5c1, 0.85);
+      wo.spotGfx.strokeCircle(0, 0, 36);
     }
     wo.hintGfx.clear();
     if (wo.highlighted) {
-      wo.hintGfx.lineStyle(3, 0xffe66d, 0.7);
-      wo.hintGfx.strokeCircle(0, 0, 34);
+      wo.hintGfx.lineStyle(3.5, 0xffe66d, 0.75);
+      wo.hintGfx.strokeCircle(0, 0, 42);
     }
   }
 
@@ -582,41 +700,55 @@ export class MainScene extends Phaser.Scene {
 
   private showSpeechBubble(word: string): void {
     this.speechBubbleText.setText(word);
-    const tw  = Math.max(this.speechBubbleText.width + 32, 80);
-    const th  = Math.max(this.speechBubbleText.height + 20, 44);
-    const cy  = -88; // center Y in lumiContainer local space
+    const tw  = Math.max(this.speechBubbleText.width + 44, 90);
+    const th  = Math.max(this.speechBubbleText.height + 26, 52);
+    const bcy = -98;
 
     this.speechBubbleGfx.clear();
 
-    // Shadow
-    this.speechBubbleGfx.fillStyle(0x2a1846, 1);
-    this.speechBubbleGfx.fillRoundedRect(-tw / 2 + 3, cy - th / 2 + 5, tw, th, 13);
+    // Warm drop shadow
+    this.speechBubbleGfx.fillStyle(0x3a1800, 0.32);
+    this.speechBubbleGfx.fillRoundedRect(-tw / 2 + 5, bcy - th / 2 + 7, tw, th, 18);
 
-    // Bubble fill
-    this.speechBubbleGfx.fillStyle(0xfffef0, 1);
-    this.speechBubbleGfx.fillRoundedRect(-tw / 2, cy - th / 2, tw, th, 13);
+    // Bubble fill — warm cream
+    this.speechBubbleGfx.fillStyle(0xfff8e8, 1);
+    this.speechBubbleGfx.fillRoundedRect(-tw / 2, bcy - th / 2, tw, th, 18);
 
-    // Tail fill (covers bubble bottom stroke at junction)
-    const tailY = cy + th / 2;
-    this.speechBubbleGfx.fillStyle(0xfffef0, 1);
-    this.speechBubbleGfx.fillTriangle(-9, tailY, 9, tailY, 0, tailY + 14);
+    // Inner brightness (top-left shine)
+    this.speechBubbleGfx.fillStyle(0xffffff, 0.42);
+    this.speechBubbleGfx.fillRoundedRect(-tw / 2 + 7, bcy - th / 2 + 6, tw * 0.62, th * 0.38, 10);
 
-    // Bubble stroke
-    this.speechBubbleGfx.lineStyle(4, 0x120d1a, 1);
-    this.speechBubbleGfx.strokeRoundedRect(-tw / 2, cy - th / 2, tw, th, 13);
+    // Tail fill
+    const tailY = bcy + th / 2;
+    this.speechBubbleGfx.fillStyle(0xfff8e8, 1);
+    this.speechBubbleGfx.fillTriangle(-13, tailY, 13, tailY, 1, tailY + 18);
 
-    // Tail diagonal lines only (skip the horizontal top of the triangle)
+    // Warm brown border
+    this.speechBubbleGfx.lineStyle(3.5, 0x7a4e2a, 1);
+    this.speechBubbleGfx.strokeRoundedRect(-tw / 2, bcy - th / 2, tw, th, 18);
+
+    // Tail sides only
     this.speechBubbleGfx.beginPath();
-    this.speechBubbleGfx.moveTo(-9, tailY);
-    this.speechBubbleGfx.lineTo(0, tailY + 14);
+    this.speechBubbleGfx.moveTo(-13, tailY);
+    this.speechBubbleGfx.lineTo(1, tailY + 18);
     this.speechBubbleGfx.strokePath();
     this.speechBubbleGfx.beginPath();
-    this.speechBubbleGfx.moveTo(9, tailY);
-    this.speechBubbleGfx.lineTo(0, tailY + 14);
+    this.speechBubbleGfx.moveTo(13, tailY);
+    this.speechBubbleGfx.lineTo(1, tailY + 18);
     this.speechBubbleGfx.strokePath();
 
     this.speechBubbleGfx.setVisible(true);
     this.speechBubbleText.setVisible(true);
+
+    // Bounce-in animation
+    this.speechBubbleGfx.setScale(0.85);
+    this.speechBubbleText.setScale(0.85);
+    this.tweens.add({
+      targets: [this.speechBubbleGfx, this.speechBubbleText],
+      scaleX: 1, scaleY: 1,
+      duration: 280,
+      ease: 'Back.out',
+    });
   }
 
   private hideSpeechBubble(): void {
@@ -626,25 +758,38 @@ export class MainScene extends Phaser.Scene {
 
   // ── Confetti ──────────────────────────────────────────────────────────────
 
-  private burstConfetti(x: number, y: number, count = 40): void {
+  private burstConfetti(x: number, y: number, count = 48): void {
     if (this.progress.settings.reducedMotion) count = Math.floor(count / 3);
-    const colors = [0xff6b6b, 0xffd23f, 0x6ec840, 0x3aa0e2, 0xb06cff, 0xff8c42, 0x2ec5c1];
+    const colors = [0xff5f5f, 0xffd23f, 0x6ec840, 0x38b8ff, 0xb06cff, 0xff8c42, 0x2ec5c1, 0xff8fc8];
+    // Star shape points
+    function starPts(r: number): Phaser.Types.Math.Vector2Like[] {
+      const pts: Phaser.Types.Math.Vector2Like[] = [];
+      for (let j = 0; j < 10; j++) {
+        const a = (j / 10) * Math.PI * 2 - Math.PI / 2;
+        const rad = j % 2 === 0 ? r : r * 0.45;
+        pts.push({ x: Math.cos(a) * rad, y: Math.sin(a) * rad });
+      }
+      return pts;
+    }
     for (let i = 0; i < count; i++) {
       const g = this.add.graphics();
-      g.fillStyle(colors[i % colors.length], 1);
-      g.fillRect(-4, -4, 8, 8);
-      g.x = x;
-      g.y = y;
+      const color = colors[i % colors.length];
+      g.fillStyle(color, 1);
+      const shape = i % 3;
+      if (shape === 0) g.fillRect(-4, -4, 8, 8);
+      else if (shape === 1) g.fillCircle(0, 0, 4.5);
+      else g.fillPoints(starPts(5), true);
+      g.x = x; g.y = y;
       g.setDepth(30);
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 80 + Math.random() * 140;
+      const angle = (i / count) * Math.PI * 2 + (i % 5) * 0.4;
+      const speed = 90 + (i % 7) * 22;
       this.tweens.add({
         targets: g,
         x: x + Math.cos(angle) * speed,
-        y: y + Math.sin(angle) * speed - 60,
+        y: y + Math.sin(angle) * speed - 65,
         alpha: 0,
-        angle: Math.random() * 720 - 360,
-        duration: 600 + Math.random() * 400,
+        angle: (i % 2 === 0 ? 1 : -1) * (300 + i * 40),
+        duration: 550 + (i % 5) * 100,
         ease: 'Cubic.out',
         onComplete: () => g.destroy(),
       });

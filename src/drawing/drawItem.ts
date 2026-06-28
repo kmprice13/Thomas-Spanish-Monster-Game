@@ -1,18 +1,30 @@
 import Phaser from 'phaser';
 import type { ModelKey } from '../content/vocabulary';
 
+/** Sprite sheet frame index for each vocab item (4-col × 3-row grid, row-major). */
+export const ITEM_FRAME: Record<ModelKey, number> = {
+  apple: 0, banana: 1, strawberry: 2, flower: 3,
+  star: 4,  ball: 5,   fish: 6,       frog: 7,
+  bird: 8,  butterfly: 9, mushroom: 10, bone: 11,
+  gem: 0,   // unused — fallback to apple
+};
+
 const INK = 0x120d1a;
 const LINE = 5;
 
 export function drawBadge(g: Phaser.GameObjects.Graphics): void {
-  const W = 66, H = 66, R = 16;
-  // Drop shadow (solid dark, peeking from behind the badge)
-  g.fillStyle(0x2a1846, 1);
-  g.fillRoundedRect(-W / 2 + 4, -H / 2 + 6, W, H, R);
-  // Badge face
-  g.fillStyle(0xfffef2, 1);
+  const W = 78, H = 78, R = 20;
+  // Warm drop shadow
+  g.fillStyle(0x4a2200, 0.32);
+  g.fillRoundedRect(-W / 2 + 5, -H / 2 + 7, W, H, R);
+  // Badge face (warm cream)
+  g.fillStyle(0xfffef5, 1);
   g.fillRoundedRect(-W / 2, -H / 2, W, H, R);
-  g.lineStyle(5, INK, 1);
+  // Subtle inner highlight (top-left corner)
+  g.fillStyle(0xffffff, 0.45);
+  g.fillRoundedRect(-W / 2 + 5, -H / 2 + 5, W * 0.65, H * 0.35, 14);
+  // Warm brown border instead of pure black
+  g.lineStyle(4, 0x7a4e2a, 1);
   g.strokeRoundedRect(-W / 2, -H / 2, W, H, R);
 }
 
