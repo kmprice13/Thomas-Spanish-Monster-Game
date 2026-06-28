@@ -253,12 +253,15 @@ export class MainScene extends Phaser.Scene {
     this.speechBubbleGfx.setVisible(false);
     this.speechBubbleText.setVisible(false);
 
-    // ── Thomas (player) — grayscale axolotl tinted to player's chosen color ──
+    // ── Thomas (player) ───────────────────────────────────────────────────────
+    // Using chars frame 1 until smooth grayscale art is ready for color picker.
+    // thomas_base.png + setTint() is already wired up — swap the two lines below
+    // once smooth art replaces thomas_base.png.
     const playerShadow = this.add.graphics();
     playerShadow.fillStyle(0x000000, 0.15);
     playerShadow.fillEllipse(0, 62, 72, 18);
-    this.playerImg = this.add.image(0, 0, 'thomas').setDisplaySize(108, 88)
-      .setTint(this.progress.settings.playerColor);
+    this.playerImg = this.add.image(0, 0, 'chars', 1).setDisplaySize(100, 133);
+    // this.playerImg = this.add.image(0,0,'thomas').setDisplaySize(108,88).setTint(this.progress.settings.playerColor);
     this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, this.playerImg]);
     this.playerContainer.setDepth(22);
     this.playerContainer.setSize(100, 133); // explicit bounds so Phaser never culls via 0×0 graphics child
