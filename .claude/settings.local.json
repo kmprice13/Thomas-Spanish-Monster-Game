@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash /Users/kmprice/.claude/skills/threejs-game-director/scripts/probe_asset_credentials.sh)",
+      "Bash(npm --version)",
+      "Bash(python3 /Users/kmprice/.claude/skills/threejs-gameplay-systems/scripts/create_threejs_game.py . --force)",
+      "Bash(npm install *)",
+      "Bash(npm test *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:5188/)",
+      "Bash(node *)",
+      "Bash(open http://127.0.0.1:5188)",
+      "Bash(say --voice '?')",
+      "Bash(say -v Paulina -o /tmp/test-es.aiff \"¡Mira! ¡La manzana!\")",
+      "Bash(afconvert -f m4af -d aac /tmp/test-es.aiff /tmp/test-es.m4a)",
+      "Read(//tmp/**)",
+      "Bash(open \"http://localhost:5189\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:5189/)",
+      "Bash(curl -s http://127.0.0.1:5189/audio/manifest.json)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(f'{len\\(d\\)} audio clips in manifest'\\)\")",
+      "Bash(gh auth *)",
+      "Bash(git --version)",
+      "Bash(git init *)",
+      "Bash(git add *)"
+    ]
+  }
+}

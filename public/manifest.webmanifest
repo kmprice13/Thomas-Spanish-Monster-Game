@@ -1,0 +1,14 @@
+{
+  "name": "Isla Monstruo",
+  "short_name": "IslaMonstruo",
+  "description": "Spanish Monster Island — learn Spanish through play",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#8fd3ff",
+  "theme_color": "#8fd3ff",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

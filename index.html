@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#8fd3ff" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <title>Isla Monstruo — Spanish Monster Island</title>
+  </head>
+  <body>
+    <main id="app">
+      <canvas id="game-canvas" aria-label="Spanish monster island game"></canvas>
+
+      <!-- ============================ Gameplay HUD ============================ -->
+      <section id="hud" class="hidden" aria-live="polite">
+        <button id="pal-button" class="hud-chip" type="button" aria-label="My monster pals">
+          <span class="hud-chip__icon">🥚</span><span id="pal-count" class="hud-chip__count">0</span>
+        </button>
+
+        <div id="quest-card" role="status">
+          <span id="quest-icon">🔍</span>
+          <button id="replay-button" type="button" aria-label="Hear it again">
+            <span class="replay-wave"></span>🔊
+          </button>
+        </div>
+
+        <button id="settings-button" class="hud-chip" type="button" aria-label="Settings">
+          <span class="hud-chip__icon">⚙️</span>
+        </button>
+      </section>
+
+      <!-- Center celebration banner (brief, non-blocking) -->
+      <div id="banner" class="hidden" aria-hidden="true"></div>
+      <!-- Unlock toast -->
+      <div id="toast" class="hidden" aria-hidden="true"></div>
+
+      <!-- Joystick (mobile / touch) -->
+      <div id="touch-controls" aria-hidden="true">
+        <div id="touch-stick"><div id="touch-knob"></div></div>
+      </div>
+
+      <!-- ============================ Start screen ============================ -->
+      <div id="start-screen" class="overlay">
+        <div class="start-card">
+          <div class="start-monster">🐲</div>
+          <h1 class="start-title">Isla&nbsp;Monstruo</h1>
+          <p class="start-sub">Spanish Monster Island</p>
+          <button id="play-button" class="big-button" type="button">▶&nbsp;Jugar</button>
+          <p id="voice-note" class="start-note"></p>
+        </div>
+      </div>
+
+      <!-- ============================ Pal Book ============================ -->
+      <div id="pal-book" class="overlay hidden">
+        <div class="panel">
+          <header class="panel__head">
+            <h2>Mis amigos</h2>
+            <button class="icon-close" data-close="pal-book" type="button" aria-label="Close">✕</button>
+          </header>
+          <div id="pal-grid" class="pal-grid"></div>
+          <p class="panel__hint">Tap a friend to hear its name 🔊</p>
+        </div>
+      </div>
+
+      <!-- ============================ Settings ============================ -->
+      <div id="settings-panel" class="overlay hidden">
+        <div class="panel">
+          <header class="panel__head">
+            <h2>Settings</h2>
+            <button class="icon-close" data-close="settings-panel" type="button" aria-label="Close">✕</button>
+          </header>
+          <label class="toggle-row">
+            <span>🎵 Sound</span>
+            <input id="set-sound" type="checkbox" checked />
+          </label>
+          <label class="toggle-row">
+            <span>🐢 Slower Spanish</span>
+            <input id="set-slow" type="checkbox" />
+          </label>
+          <label class="toggle-row">
+            <span>🌙 Calm mode (less motion)</span>
+            <input id="set-calm" type="checkbox" />
+          </label>
+          <button id="grownups-button" class="text-button" type="button">For grown-ups →</button>
+        </div>
+      </div>
+
+      <!-- ============================ Parent gate ============================ -->
+      <div id="parent-gate" class="overlay hidden">
+        <div class="panel">
+          <header class="panel__head">
+            <h2>Grown-ups only</h2>
+            <button class="icon-close" data-close="parent-gate" type="button" aria-label="Close">✕</button>
+          </header>
+          <p class="panel__hint" id="gate-question">Solve to continue:</p>
+          <div class="gate-answers" id="gate-answers"></div>
+        </div>
+      </div>
+
+      <!-- ============================ Parent dashboard ============================ -->
+      <div id="parent-dashboard" class="overlay hidden">
+        <div class="panel panel--wide">
+          <header class="panel__head">
+            <h2>Progress</h2>
+            <button class="icon-close" data-close="parent-dashboard" type="button" aria-label="Close">✕</button>
+          </header>
+          <div id="dash-body" class="dash-body"></div>
+        </div>
+      </div>
+    </main>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

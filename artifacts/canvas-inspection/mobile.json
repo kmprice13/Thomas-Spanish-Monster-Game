@@ -1,0 +1,53 @@
+{
+  "url": "http://127.0.0.1:5188",
+  "mode": "mobile",
+  "screenshotPath": "artifacts/canvas-inspection/mobile.png",
+  "result": {
+    "ok": true,
+    "reason": "nonblank",
+    "rect": {
+      "x": 0,
+      "y": 0,
+      "width": 390,
+      "height": 664
+    },
+    "drawingBuffer": {
+      "width": 780,
+      "height": 1328
+    },
+    "alphaPixels": 4097,
+    "variance": 255,
+    "colorBuckets": 132,
+    "diagnostics": {
+      "frame": 50,
+      "phase": "start",
+      "quest": null,
+      "completedQuests": 0,
+      "creatures": 0,
+      "worldObjects": 0,
+      "player": {
+        "position": {
+          "x": 0,
+          "y": 0,
+          "z": 1.5
+        },
+        "speed": 0
+      },
+      "renderer": {
+        "calls": 49,
+        "triangles": 9680,
+        "geometries": 30,
+        "textures": 3
+      },
+      "canvas": {
+        "clientWidth": 390,
+        "clientHeight": 664,
+        "width": 780,
+        "height": 1328,
+        "dpr": 3
+      }
+    }
+  },
+  "consoleErrors": [],
+  "pageErrors": []
+}
