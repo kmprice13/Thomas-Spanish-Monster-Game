@@ -233,8 +233,8 @@ export class MainScene extends Phaser.Scene {
     // ── Lumi (NPC) ────────────────────────────────────────────────────────
     const lumiShadow = this.add.graphics();
     lumiShadow.fillStyle(0x000000, 0.15);
-    lumiShadow.fillEllipse(0, 60, 90, 18);
-    const lumiImg = this.add.image(0, 0, 'lumi').setDisplaySize(150, 100);
+    lumiShadow.fillEllipse(0, 62, 80, 18);
+    const lumiImg = this.add.image(0, 0, 'lumi').setDisplaySize(130, 130);
     this.lumiContainer = this.add.container(LUMI_X, LUMI_Y, [lumiShadow, lumiImg]);
     this.lumiContainer.setDepth(10);
 
