@@ -14,5 +14,5 @@ new Phaser.Game({
     parent: 'app',
   },
   input: { keyboard: true, touch: true, mouse: true },
-  render: { antialias: false, pixelArt: true },
+  render: { antialias: true, pixelArt: false },
 });
