@@ -10,11 +10,7 @@ import type { QuestKind } from '../content/quests';
 import { QUEST_ICON } from '../content/quests';
 import type { ParentSummary } from './ProgressStore';
 
-const CREATURE_EMOJIS: Record<string, string> = {
-  manzana: '🍎', platano: '🍌', fresa: '🍓', flor: '🌸', estrella: '⭐',
-  pelota: '⚽', pez: '🐟', rana: '🐸', pajaro: '🐦', mariposa: '🦋',
-  seta: '🍄', hueso: '🦴',
-};
+const CHISPA_IMG = 'assets/chispa_base.png';
 
 export interface UICallbacks {
   onPlay: () => void;
@@ -89,7 +85,7 @@ export class GameUI {
 
   setPalCount(n: number): void {
     this.palCount.textContent = String(n);
-    this.palButton.querySelector('.hud-chip__icon')!.textContent = n > 0 ? '🐲' : '🥚';
+    this.palButton.querySelector('.hud-chip__icon')!.textContent = n > 0 ? '✨' : '🥚';
   }
 
   applySettings(muted: boolean, slow: boolean, calm: boolean): void {
@@ -122,7 +118,7 @@ export class GameUI {
     this.toastTimer = window.setTimeout(() => this.toast.classList.add('hidden'), 2700);
   }
 
-  /** Refresh the Pal Book grid. */
+  /** Refresh the Mis Chispas grid. */
   updatePalBook(collectedIds: readonly string[], allVocab: readonly VocabItem[]): void {
     this.palGrid.innerHTML = '';
     for (const v of allVocab) {
@@ -130,13 +126,16 @@ export class GameUI {
       const cell = document.createElement('button');
       cell.className = `pal-cell${collected ? '' : ' locked'}`;
       cell.type = 'button';
+      cell.innerHTML = `
+        <div class="chispa-card">
+          <img src="${CHISPA_IMG}" class="chispa-img" alt="" />
+          <span class="chispa-belly">${collected ? v.es : '?'}</span>
+        </div>`;
       if (collected) {
-        cell.innerHTML = `<span class="pal-emoji">${CREATURE_EMOJIS[v.id] ?? '🌟'}</span><span class="pal-name">${v.es}</span>`;
         cell.setAttribute('aria-label', `${v.es} — tap to hear`);
         cell.dataset.vocabId = v.id;
       } else {
-        cell.textContent = '?';
-        cell.setAttribute('aria-label', 'Locked');
+        cell.setAttribute('aria-label', 'Not yet collected');
         cell.disabled = true;
       }
       this.palGrid.appendChild(cell);
@@ -144,7 +143,6 @@ export class GameUI {
     this.palGrid.addEventListener('click', (e) => {
       const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.pal-cell');
       if (!btn?.dataset.vocabId) return;
-      // Delegate to the replay callback with the vocab id stored in the button.
       btn.dispatchEvent(new CustomEvent('pal-speak', { bubbles: true, detail: btn.dataset.vocabId }));
     });
   }

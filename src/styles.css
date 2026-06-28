@@ -213,6 +213,23 @@ body {
   pointer-events: none;
 }
 
+/* Hint ring — always visible on touch screens so kids know where to put thumb */
+#joystick-hint {
+  display: none;
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left));
+  bottom: max(24px, env(safe-area-inset-bottom));
+  width: clamp(100px, 28vw, 130px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 3px dashed rgba(255, 255, 255, 0.45);
+  background: rgba(255, 247, 233, 0.12);
+  pointer-events: none;
+}
+@media (pointer: coarse) {
+  #joystick-hint { display: block; }
+}
+
 /* Stick is positioned via JS (position:fixed, left/top set at touch-start) */
 #touch-stick {
   display: none;          /* shown by JS on first touch */
@@ -236,7 +253,7 @@ body {
   background: var(--coral);
   box-shadow: 0 6px 0 rgba(0, 0, 0, 0.15);
   transform: translate(-50%, -50%);
-  transition: transform 60ms linear;  /* tiny lag makes knob feel physical */
+  transition: transform 60ms linear;
 }
 
 /* ====================== Overlays & panels ====================== */
@@ -362,35 +379,59 @@ body {
 }
 
 .pal-cell {
-  aspect-ratio: 1;
   border: none;
   border-radius: 20px;
   background: #fff;
   box-shadow: inset 0 0 0 3px #ffe9c2;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   cursor: pointer;
-  font-weight: 800;
-}
-
-.pal-cell .pal-emoji {
-  font-size: 2.2rem;
-}
-
-.pal-cell .pal-name {
-  font-size: 0.85rem;
-  color: var(--ink);
+  padding: 6px;
 }
 
 .pal-cell.locked {
   background: #efe7da;
   box-shadow: none;
-  color: #c3b8a8;
   cursor: default;
-  font-size: 1.8rem;
+}
+
+/* Chispa card inside each pal-cell */
+.chispa-card {
+  position: relative;
+  width: 72px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.chispa-img {
+  width: 72px;
+  height: 72px;
+  object-fit: contain;
+  display: block;
+}
+
+/* Word printed on the belly patch */
+.chispa-belly {
+  position: absolute;
+  top: 60%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  font-weight: 900;
+  color: #3a1800;
+  white-space: nowrap;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+  letter-spacing: -0.3px;
+}
+
+.pal-cell.locked .chispa-img {
+  filter: grayscale(1) opacity(0.35);
+}
+
+.pal-cell.locked .chispa-belly {
+  color: #aaa;
+  text-shadow: none;
 }
 
 /* ====================== Settings ====================== */

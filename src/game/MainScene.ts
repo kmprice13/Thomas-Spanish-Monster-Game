@@ -122,6 +122,8 @@ export class MainScene extends Phaser.Scene {
     this.load.image('palm', 'assets/palm_tree_alpha.png');
     // Scene background
     this.load.image('bg', 'assets/bg.png');
+    // Chispa collectible creature
+    this.load.image('chispa', 'assets/chispa_base.png');
   }
 
   create(): void {
@@ -291,6 +293,7 @@ export class MainScene extends Phaser.Scene {
     // Touch joystick — floating: appears where thumb lands, knob follows the drag
     this.touchStickEl = document.getElementById('touch-stick');
     this.touchKnobEl  = document.getElementById('touch-knob');
+    const joystickHint = document.getElementById('joystick-hint');
 
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
       if (ptr.x < 480 && this.touchActiveId === -1) {
@@ -299,6 +302,8 @@ export class MainScene extends Phaser.Scene {
         this.touchStartY   = ptr.y;
         this.touchDx = 0;
         this.touchDy = 0;
+        // Hide the static hint ring once the player has found the joystick zone
+        if (joystickHint) joystickHint.style.display = 'none';
         // Position the stick circle at the thumb's landing point
         if (this.touchStickEl) {
           const cvs  = this.sys.game.canvas;
@@ -723,10 +728,10 @@ export class MainScene extends Phaser.Scene {
     if (!added) { void this.advanceQuest(); return; }
 
     const vocab = MEADOW_VOCAB.find(v => v.id === vocabId)!;
-    this.ui.showToast('🎉', `¡Nuevo amigo! ${vocab.es}`);
+    this.ui.showToast('✨', `¡Nueva Chispa! ${vocab.es}`);
     this.sfx.play('hatch');
     this.clips.cancel();
-    void this.clips.speakAsync('new-friend', '¡Nuevo amigo!');
+    void this.clips.speakAsync('new-chispa', '¡Nueva Chispa!');
 
     this.phase = 'hatching';
     this.hatchTimer = 2.2;
