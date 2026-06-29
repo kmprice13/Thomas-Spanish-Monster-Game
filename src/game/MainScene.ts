@@ -152,7 +152,12 @@ export class MainScene extends Phaser.Scene {
   // ── Phaser lifecycle ──────────────────────────────────────────────────────
 
   preload(): void {
-    // Individual vocab images — 512×512 square pixel art assets
+    // Spritesheet used as fallback until individual pixel-art files land in assets/
+    this.load.spritesheet('vocab', 'assets/vocab_sheet_alpha.png', {
+      frameWidth: 384,
+      frameHeight: 341,
+    });
+    // Individual vocab images — 512×512 square pixel art assets (drop in assets/ to activate)
     (['apple','banana','strawberry','flower','star','ball',
       'fish','frog','bird','butterfly','mushroom','bone'] as const)
       .forEach(key => this.load.image(`vocab_${key}`, `assets/vocab_${key}.png`));
@@ -240,6 +245,21 @@ export class MainScene extends Phaser.Scene {
     this.ui.applySettings(muted, slowSpeech, reducedMotion, this.progress.settings.playerColorId);
     this.ui.buildCustomizer(this.progress.unlockedColors, this.progress.settings.playerColorId, this.progress.coins);
     this.ui.updateCoins(this.progress.coins);
+
+    // Register spritesheet frames as individual texture keys for any vocab image
+    // that hasn't been replaced by a new pixel-art file in assets/ yet.
+    const VOCAB_FRAME_ORDER = ['apple','banana','strawberry','flower','star','ball',
+      'fish','frog','bird','butterfly','mushroom','bone'] as const;
+    const srcTex = this.textures.get('vocab');
+    VOCAB_FRAME_ORDER.forEach((name, i) => {
+      const key = `vocab_${name}`;
+      if (!this.textures.exists(key)) {
+        const f = srcTex.get(i);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const t = this.textures.create(key, srcTex.source[0].image as any, f.realWidth, f.realHeight);
+        if (t) t.add('__BASE', 0, f.cutX, f.cutY, f.cutWidth, f.cutHeight);
+      }
+    });
 
     // ── Scene background image (depth -1) ────────────────────────────────
     // 1448×1086 source → exact 4:3 match for 800×600 canvas
