@@ -1,21 +1,12 @@
 import Phaser from 'phaser';
 import type { ModelKey } from '../content/vocabulary';
 
-/** Texture key for each vocab item's individual image asset. */
-export const ITEM_KEY: Record<ModelKey, string> = {
-  apple:     'vocab_apple',
-  banana:    'vocab_banana',
-  strawberry:'vocab_strawberry',
-  flower:    'vocab_flower',
-  star:      'vocab_star',
-  ball:      'vocab_ball',
-  fish:      'vocab_fish',
-  frog:      'vocab_frog',
-  bird:      'vocab_bird',
-  butterfly: 'vocab_butterfly',
-  mushroom:  'vocab_mushroom',
-  bone:      'vocab_bone',
-  gem:       'vocab_apple',  // unused — fallback to apple
+/** Sprite sheet frame index for each vocab item (4-col × 3-row grid, row-major). */
+export const ITEM_FRAME: Record<ModelKey, number> = {
+  apple: 0, banana: 1, strawberry: 2, flower: 3,
+  star: 4,  ball: 5,   fish: 6,       frog: 7,
+  bird: 8,  butterfly: 9, mushroom: 10, bone: 11,
+  gem: 0,   // unused — fallback to apple
 };
 
 const INK = 0x120d1a;

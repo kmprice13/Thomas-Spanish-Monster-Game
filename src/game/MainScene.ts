@@ -11,7 +11,7 @@ import { ACTIVE_COMMANDS, type CommandWord, type CommandAction } from '../conten
 import type { VocabItem } from '../content/vocabulary';
 import { drawIsland } from '../drawing/drawIsland';
 import { drawRocksAndFlowers, drawForeground } from '../drawing/drawDecorations';
-import { drawBadge, ITEM_KEY } from '../drawing/drawItem';
+import { drawBadge, ITEM_FRAME } from '../drawing/drawItem';
 
 // ── Island growth milestones — one decoration per Chispa collected ────────────
 // Positions are kept in the UPPER island (y < 360) or FAR EDGES (x < 210 or x > 590)
@@ -152,15 +152,10 @@ export class MainScene extends Phaser.Scene {
   // ── Phaser lifecycle ──────────────────────────────────────────────────────
 
   preload(): void {
-    // Spritesheet used as fallback until individual pixel-art files land in assets/
     this.load.spritesheet('vocab', 'assets/vocab_sheet_alpha.png', {
       frameWidth: 384,
       frameHeight: 341,
     });
-    // Individual vocab images — 512×512 square pixel art assets (drop in assets/ to activate)
-    (['apple','banana','strawberry','flower','star','ball',
-      'fish','frog','bird','butterfly','mushroom','bone'] as const)
-      .forEach(key => this.load.image(`vocab_${key}`, `assets/vocab_${key}.png`));
     // Palm tree — white bg removed by process-palm-tree.mjs
     this.load.image('palm', 'assets/palm_tree_alpha.png');
     // Scene background
@@ -245,21 +240,6 @@ export class MainScene extends Phaser.Scene {
     this.ui.applySettings(muted, slowSpeech, reducedMotion, this.progress.settings.playerColorId);
     this.ui.buildCustomizer(this.progress.unlockedColors, this.progress.settings.playerColorId, this.progress.coins);
     this.ui.updateCoins(this.progress.coins);
-
-    // Register spritesheet frames as individual texture keys for any vocab image
-    // that hasn't been replaced by a new pixel-art file in assets/ yet.
-    const VOCAB_FRAME_ORDER = ['apple','banana','strawberry','flower','star','ball',
-      'fish','frog','bird','butterfly','mushroom','bone'] as const;
-    const srcTex = this.textures.get('vocab');
-    VOCAB_FRAME_ORDER.forEach((name, i) => {
-      const key = `vocab_${name}`;
-      if (!this.textures.exists(key)) {
-        const f = srcTex.get(i);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const t = this.textures.create(key, srcTex.source[0].image as any, f.realWidth, f.realHeight);
-        if (t) t.add('__BASE', 0, f.cutX, f.cutY, f.cutWidth, f.cutHeight);
-      }
-    });
 
     // ── Scene background image (depth -1) ────────────────────────────────
     // 1448×1086 source → exact 4:3 match for 800×600 canvas
@@ -360,7 +340,7 @@ export class MainScene extends Phaser.Scene {
     this.playerNatScaleY = this.playerImg.scaleY;
 
     // Carry icon — floats above Thomas during give quests, hidden otherwise
-    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab_apple')
+    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab', 0)
       .setDisplaySize(44, 39).setDepth(23).setVisible(false);
 
     // Pulse ring under Lumi — visible during give quest carry phase
@@ -749,7 +729,7 @@ export class MainScene extends Phaser.Scene {
       const badgeGfx = this.add.graphics();
       drawBadge(badgeGfx);
 
-      const itemImg  = this.add.image(0, 0, ITEM_KEY[spec.vocab.model]).setDisplaySize(66, 58);
+      const itemImg  = this.add.image(0, 0, 'vocab', ITEM_FRAME[spec.vocab.model]).setDisplaySize(66, 58);
       if (spec.colorOverride !== undefined) itemImg.setTint(spec.colorOverride);
 
       const spotGfx = this.add.graphics();
@@ -859,7 +839,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     if (result.outcome === 'pickup') {
-      this.carryIcon.setTexture(ITEM_KEY[wo.vocab.model]);
+      this.carryIcon.setFrame(ITEM_FRAME[wo.vocab.model]);
       this.clips.speak(`carrying-${wo.vocab.id}`, `¡Sí! Dale ${wo.vocab.say} a Lumi.`);
       return;
     }
