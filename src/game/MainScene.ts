@@ -11,7 +11,31 @@ import { ACTIVE_COMMANDS, type CommandWord, type CommandAction } from '../conten
 import type { VocabItem } from '../content/vocabulary';
 import { drawIsland } from '../drawing/drawIsland';
 import { drawRocksAndFlowers, drawForeground } from '../drawing/drawDecorations';
-import { drawBadge, ITEM_FRAME } from '../drawing/drawItem';
+import { drawBadge, ITEM_KEY } from '../drawing/drawItem';
+
+// ── Island growth milestones — one decoration per Chispa collected ────────────
+// Positions are kept in the UPPER island (y < 360) or FAR EDGES (x < 210 or x > 590)
+// so they don't compete visually with vocab items that spawn in the center-lower zone.
+const ISLAND_MILESTONES = [
+  // Small flowers — upper grass zone, safely above item spawns
+  { key: 'isle_yellow_flowers', chispaCount:  1, x: 260, y: 352, w:  64, h:  60, depth: 1 },
+  { key: 'isle_pink_flowers',   chispaCount:  2, x: 527, y: 350, w:  64, h:  60, depth: 1 },
+  { key: 'isle_purple_flowers', chispaCount:  3, x: 204, y: 430, w:  58, h:  54, depth: 1 },
+  // Rocks — far edges so they read as island boundary, not game objects
+  { key: 'isle_rock_small',     chispaCount:  4, x: 597, y: 432, w:  58, h:  44, depth: 1 },
+  { key: 'isle_rock_large',     chispaCount:  5, x: 206, y: 396, w:  84, h:  64, depth: 1 },
+  // Bush — upper right, snug under the right palm
+  { key: 'isle_bush',           chispaCount:  6, x: 522, y: 307, w:  84, h:  65, depth: 1 },
+  // Pond — upper center-left, centrepiece that doesn't block play
+  { key: 'isle_pond',           chispaCount:  7, x: 308, y: 314, w: 128, h:  93, depth: 1 },
+  // Sign — far left edge near sand, reads as decoration not an item
+  { key: 'isle_sign',           chispaCount:  8, x: 213, y: 454, w:  68, h:  95, depth: 2 },
+  // Bridge + dock — far right water edge, clearly part of the scenery
+  { key: 'isle_bridge',         chispaCount:  9, x: 593, y: 452, w: 144, h:  98, depth: 1 },
+  { key: 'isle_dock',           chispaCount: 10, x: 610, y: 480, w: 144, h: 106, depth: 1 },
+  // Chest — upper island near the mound (feels hidden / discovered)
+  { key: 'isle_chest',          chispaCount: 11, x: 330, y: 294, w:  76, h:  70, depth: 2 },
+] as const;
 
 // ── Layout (800×600 logical canvas) ──────────────────────────────────────────
 const ISLAND_CX      = 400;
@@ -61,15 +85,19 @@ export class MainScene extends Phaser.Scene {
   private ui!: GameUI;
 
   // ── Scene objects ─────────────────────────────────────────────────────────
-  private playerContainer!: Phaser.GameObjects.Container;
   private lumiContainer!: Phaser.GameObjects.Container;
   private speechBubbleGfx!: Phaser.GameObjects.Graphics;
   private speechBubbleText!: Phaser.GameObjects.Text;
   private worldObjects: WorldObj[] = [];
   private carryIcon!: Phaser.GameObjects.Image;   // item floating above Thomas while carrying
   private lumiPulseRing!: Phaser.GameObjects.Graphics; // pulsing ring under Lumi during give quest
+  private deliveryArrow!: Phaser.GameObjects.Graphics; // bouncing directional arrow → Lumi during carry
   private playerImg!: Phaser.GameObjects.Image;
+  private playerNatScaleX = 1; // natural scaleX set by setDisplaySize(120,130) — captured once
+  private playerNatScaleY = 1;
+  private playerShadow!: Phaser.GameObjects.Graphics;
   private coinPending = 0; // fractional coin accumulator for progressive earn rate
+  private islandDecos: (Phaser.GameObjects.Image | null)[] = [];
 
   // ── Player physics ────────────────────────────────────────────────────────
   private playerX = PLAYER_START_X;
@@ -124,11 +152,10 @@ export class MainScene extends Phaser.Scene {
   // ── Phaser lifecycle ──────────────────────────────────────────────────────
 
   preload(): void {
-    // 4-col × 3-row sprite sheet, white bg removed by make-sprites-alpha.mjs
-    this.load.spritesheet('vocab', 'assets/vocab_sheet_alpha.png', {
-      frameWidth: 384,
-      frameHeight: 341,
-    });
+    // Individual vocab images — 512×512 square pixel art assets
+    (['apple','banana','strawberry','flower','star','ball',
+      'fish','frog','bird','butterfly','mushroom','bone'] as const)
+      .forEach(key => this.load.image(`vocab_${key}`, `assets/vocab_${key}.png`));
     // Palm tree — white bg removed by process-palm-tree.mjs
     this.load.image('palm', 'assets/palm_tree_alpha.png');
     // Scene background
@@ -140,6 +167,8 @@ export class MainScene extends Phaser.Scene {
     // Lumi — colored NPC sprite + portrait for start screen
     this.load.image('lumi', 'assets/lumi_base.png');
     this.load.image('lumi-portrait', 'assets/lumi_portrait.png');
+    // Island growth decorations (processed by scripts/process-island-elements.mjs)
+    ISLAND_MILESTONES.forEach(m => this.load.image(m.key, `assets/${m.key}.png`));
   }
 
   create(): void {
@@ -181,13 +210,26 @@ export class MainScene extends Phaser.Scene {
         if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`).setDisplaySize(120, 130);
         this.ui.updateCustomizerSelection(id);
       },
+      onParentDashboardOpen: () => {
+        this.ui.updateDashboard(this.progress.parentSummary());
+      },
       onColorUnlock: (id, cost) => {
         if (!this.progress.spendCoins(cost)) return;
+        const isFirst = this.progress.unlockedColors.length === 0;
         this.progress.unlockColor(id);
         this.progress.setSettings({ playerColorId: id });
         if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`).setDisplaySize(120, 130);
         this.ui.buildCustomizer(this.progress.unlockedColors, id, this.progress.coins);
         this.ui.updateCoins(this.progress.coins);
+        { const nsx = this.playerNatScaleX, nsy = this.playerNatScaleY;
+          if (isFirst) {
+            this.burstConfetti(this.playerX, this.playerY, 80);
+            this.tweens.add({ targets: this.playerImg, scaleX: nsx * 1.28, scaleY: nsy * 1.28, duration: 220, ease: 'Back.out', yoyo: true, onComplete: () => { this.playerImg.scaleX = nsx; this.playerImg.scaleY = nsy; } });
+            this.ui.showToast('✨', '¡Nuevo look!');
+          } else {
+            this.burstConfetti(this.playerX, this.playerY, 28);
+            this.tweens.add({ targets: this.playerImg, scaleX: nsx * 1.14, scaleY: nsy * 1.14, duration: 180, ease: 'Back.out', yoyo: true, onComplete: () => { this.playerImg.scaleX = nsx; this.playerImg.scaleY = nsy; } });
+          } }
       },
     });
 
@@ -280,26 +322,31 @@ export class MainScene extends Phaser.Scene {
     this.speechBubbleText.setVisible(false);
 
     // ── Thomas (player) ───────────────────────────────────────────────────────
-    const playerShadow = this.add.graphics();
-    playerShadow.fillStyle(0x000000, 0.15);
-    playerShadow.fillEllipse(0, 65, 80, 18);
+    // Shadow is a standalone object (not a container child) so the container's
+    // bounds are derived purely from the Image, giving Phaser reliable culling (#20)
+    this.playerShadow = this.add.graphics().setDepth(21);
+    this.playerShadow.fillStyle(0x000000, 0.15);
+    this.playerShadow.fillEllipse(0, 0, 80, 18);
     // Apply NEAREST filter to every Thomas skin so runtime swaps stay crisp
     MainScene.ALL_SKIN_IDS.forEach(id => {
       this.textures.get(`thomas_${id}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
     });
     const skinId = this.progress.settings.playerColorId;
-    this.playerImg = this.add.image(0, 0, `thomas_${skinId}`).setDisplaySize(120, 130);
-    this.playerContainer = this.add.container(PLAYER_START_X, PLAYER_START_Y, [playerShadow, this.playerImg]);
-    this.playerContainer.setDepth(22);
-    this.playerContainer.setSize(120, 130); // explicit bounds so Phaser never culls via 0×0 graphics child
+    // Plain Image — no Container wrapper — gives Phaser unambiguous displayWidth/Height for culling (#20)
+    this.playerImg = this.add.image(PLAYER_START_X, PLAYER_START_Y, `thomas_${skinId}`)
+      .setDisplaySize(120, 130)
+      .setDepth(22);
+    this.playerNatScaleX = this.playerImg.scaleX;
+    this.playerNatScaleY = this.playerImg.scaleY;
 
     // Carry icon — floats above Thomas during give quests, hidden otherwise
-    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab', 0)
+    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab_apple')
       .setDisplaySize(44, 39).setDepth(23).setVisible(false);
 
     // Pulse ring under Lumi — visible during give quest carry phase
     this.lumiPulseRing = this.add.graphics().setDepth(9);
     this.lumiPulseRing.setVisible(false);
+    this.deliveryArrow = this.add.graphics().setDepth(24).setVisible(false);
 
     // ── Foreground grass tufts + flowers (depth 20 — in front of chars) ───
     const fgGfx = this.add.graphics();
@@ -433,14 +480,22 @@ export class MainScene extends Phaser.Scene {
     });
 
     if (!this.voice.supported) this.ui.setVoiceNote('⚠️ Audio not available in this browser.');
+
+    // Place any island decorations already earned from previous sessions
+    this.placeIslandDecos(false);
   }
 
   update(_time: number, delta: number): void {
     const dt = delta / 1000;
     this.elapsed += dt;
 
-    // Lumi idle bob
-    this.lumiContainer.y = LUMI_Y + Math.sin(this.elapsed * 1.4) * 3;
+    // Lumi idle bob — more eager during give quest carry phase (#12)
+    let lumiEager = false;
+    if (this.phase !== 'start') {
+      const q = this.questDir.quest;
+      if (q && q.kind === 'give') lumiEager = q.carrying;
+    }
+    this.lumiContainer.y = LUMI_Y + Math.sin(this.elapsed * (lumiEager ? 2.8 : 1.4)) * (lumiEager ? 5 : 3);
     if (this.npcBounceTimer > 0) {
       this.npcBounceTimer = Math.max(0, this.npcBounceTimer - dt);
       this.lumiContainer.scaleY = 1 + Math.sin(this.npcBounceTimer * 18) * 0.08 * this.npcBounceTimer;
@@ -485,8 +540,12 @@ export class MainScene extends Phaser.Scene {
       }
 
       const speed = Math.sqrt(this.velX ** 2 + this.velY ** 2);
-      this.playerContainer.x = this.playerX;
-      this.playerContainer.y = this.playerY + Math.sin(this.elapsed * 9) * Math.min(speed / 320, 4);
+      const moveBob = Math.sin(this.elapsed * 9) * Math.min(speed / 320, 4);
+      const idleBob = Math.sin(this.elapsed * 1.6) * (1 - Math.min(speed / 60, 1)) * 2.5;
+      const bobY = this.playerY + moveBob + idleBob;
+      this.playerImg.x = this.playerX;
+      this.playerImg.y = bobY;
+      this.playerShadow.setPosition(this.playerX, bobY + 65);
     }
 
     // ── Quest interaction (playing phase) ────────────────────────────────
@@ -522,6 +581,30 @@ export class MainScene extends Phaser.Scene {
         const pulse = 0.55 + Math.sin(this.elapsed * 5) * 0.35;
         this.lumiPulseRing.lineStyle(4, 0xffe66d, pulse);
         this.lumiPulseRing.strokeCircle(LUMI_X, LUMI_Y + 20, 52);
+      }
+      // Directional arrow above the carry icon → points toward Lumi with a bouncing nudge (#12)
+      this.deliveryArrow.setVisible(isCarrying);
+      if (isCarrying) {
+        const dx = LUMI_X - this.playerX;
+        const dy = LUMI_Y - this.playerY;
+        const angle = Math.atan2(dy, dx);
+        const bounce = Math.sin(this.elapsed * 6) * 3;
+        const ax = this.playerX + Math.cos(angle) * bounce;
+        const ay = this.playerY - 114 + Math.sin(angle) * bounce;
+        const r = 11;
+        this.deliveryArrow.clear();
+        this.deliveryArrow.fillStyle(0xffe66d, 0.95);
+        this.deliveryArrow.lineStyle(2, 0x7a4e2a, 1);
+        this.deliveryArrow.fillTriangle(
+          ax + Math.cos(angle) * r,               ay + Math.sin(angle) * r,
+          ax + Math.cos(angle + 2.3) * r * 0.55,  ay + Math.sin(angle + 2.3) * r * 0.55,
+          ax + Math.cos(angle - 2.3) * r * 0.55,  ay + Math.sin(angle - 2.3) * r * 0.55,
+        );
+        this.deliveryArrow.strokeTriangle(
+          ax + Math.cos(angle) * r,               ay + Math.sin(angle) * r,
+          ax + Math.cos(angle + 2.3) * r * 0.55,  ay + Math.sin(angle + 2.3) * r * 0.55,
+          ax + Math.cos(angle - 2.3) * r * 0.55,  ay + Math.sin(angle - 2.3) * r * 0.55,
+        );
       }
 
       // Hint rings after 3 wrong answers
@@ -618,15 +701,16 @@ export class MainScene extends Phaser.Scene {
       ? `${quest.target.say} ${quest.target.article === 'la' ? quest.color.esFem : quest.color.es}`
       : quest.target.say;
     this.showSpeechBubble(bubbleText);
-    this.clips.speak(`${kind}-${quest.target.id}`, quest.line.text, {
-      onEnd: () => {
-        if (this.phase === 'speaking') {
-          this.phase = 'playing';
-          this.questStartTime = performance.now();
-        }
-        this.ui.setQuest(quest.kind, false);
-      },
-    });
+    const onEnd = () => {
+      if (this.phase === 'speaking') {
+        this.phase = 'playing';
+        this.questStartTime = performance.now();
+      }
+      this.ui.setQuest(quest.kind, false);
+    };
+    this.clips.speak(`${kind}-${quest.target.id}`, quest.line.text, { onEnd });
+    // Safety: if Web Speech API onend never fires (known browser bug), unblock after 4s
+    setTimeout(() => { if (this.phase === 'speaking') onEnd(); }, 4000);
   }
 
   // ── World object spawning ─────────────────────────────────────────────────
@@ -645,8 +729,7 @@ export class MainScene extends Phaser.Scene {
       const badgeGfx = this.add.graphics();
       drawBadge(badgeGfx);
 
-      const frameIdx = ITEM_FRAME[spec.vocab.model];
-      const itemImg  = this.add.image(0, 0, 'vocab', frameIdx).setDisplaySize(66, 58);
+      const itemImg  = this.add.image(0, 0, ITEM_KEY[spec.vocab.model]).setDisplaySize(66, 58);
       if (spec.colorOverride !== undefined) itemImg.setTint(spec.colorOverride);
 
       const spotGfx = this.add.graphics();
@@ -717,13 +800,12 @@ export class MainScene extends Phaser.Scene {
 
     if (!correct) {
       this.sfx.play('wrong');
-      // Shake Thomas left-right
+      const nsx = this.playerNatScaleX;
+      this.tweens.killTweensOf(this.playerImg);
       this.tweens.add({
-        targets: this.playerContainer,
-        x: { from: this.playerX - 8, to: this.playerX },
-        duration: 320, ease: 'Sine.InOut', yoyo: false,
-        onStart: () => { this.playerContainer.x = this.playerX - 8; },
-        props: { x: { value: this.playerX, duration: 40, ease: 'Sine.InOut', yoyo: true, repeat: 4 } },
+        targets: this.playerImg,
+        props: { scaleX: { value: nsx * 0.72, duration: 45, ease: 'Sine.Out', yoyo: true, repeat: 3 } },
+        onComplete: () => { this.playerImg.scaleX = nsx; },
       });
       this.evalCooldown = 0.9;
       this.nudgeIndex++;
@@ -740,10 +822,13 @@ export class MainScene extends Phaser.Scene {
     wo.active = false;
     this.sfx.play(result.outcome === 'progress' ? 'collect' : 'correct');
     // Wiggle Thomas on correct
-    this.tweens.add({
-      targets: this.playerContainer,
-      props: { scaleX: { value: 1.18, duration: 80, ease: 'Sine.Out', yoyo: true, repeat: 2 } },
-    });
+    { const nsx = this.playerNatScaleX;
+      this.tweens.killTweensOf(this.playerImg);
+      this.tweens.add({
+        targets: this.playerImg,
+        props: { scaleX: { value: nsx * 1.18, duration: 80, ease: 'Sine.Out', yoyo: true, repeat: 2 } },
+        onComplete: () => { this.playerImg.scaleX = nsx; },
+      }); }
     this.burstConfetti(wo.x, wo.y);
 
     this.tweens.add({
@@ -754,7 +839,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     if (result.outcome === 'pickup') {
-      this.carryIcon.setFrame(ITEM_FRAME[wo.vocab.model]);
+      this.carryIcon.setTexture(ITEM_KEY[wo.vocab.model]);
       this.clips.speak(`carrying-${wo.vocab.id}`, `¡Sí! Dale ${wo.vocab.say} a Lumi.`);
       return;
     }
@@ -844,6 +929,8 @@ export class MainScene extends Phaser.Scene {
   private startHatch(vocabId: string): void {
     const added = this.progress.addCreature(vocabId);
     if (!added) { void this.advanceQuest(); return; }
+
+    this.placeIslandDecos(true); // animate in any newly unlocked island element
 
     const vocab = MEADOW_VOCAB.find(v => v.id === vocabId)!;
     this.ui.showToast('✨', `¡Nueva Chispa! ${vocab.es}`);
@@ -977,6 +1064,21 @@ export class MainScene extends Phaser.Scene {
     }
   }
 
+  // ── Island growth (#5 / #29) ─────────────────────────────────────────────
+
+  private placeIslandDecos(animate: boolean): void {
+    const count = this.progress.creatures.length;
+    ISLAND_MILESTONES.forEach((m, i) => {
+      if (m.chispaCount > count || this.islandDecos[i]) return;
+      const img = this.add.image(m.x, m.y, m.key).setDisplaySize(m.w, m.h).setDepth(m.depth);
+      this.islandDecos[i] = img;
+      if (animate) {
+        img.setScale(0);
+        this.tweens.add({ targets: img, scaleX: 1, scaleY: 1, duration: 600, delay: 1200, ease: 'Back.out' });
+      }
+    });
+  }
+
   // ── Lumi Says (Simon) ─────────────────────────────────────────────────────
 
   private async runSimonInterlude(): Promise<void> {
@@ -1072,20 +1174,24 @@ export class MainScene extends Phaser.Scene {
   }
 
   private performAction(who: 'lumi' | 'thomas', action: CommandAction): void {
-    const container = who === 'lumi' ? this.lumiContainer : this.playerContainer;
+    const container = who === 'lumi' ? this.lumiContainer : this.playerImg;
     const baseX = who === 'lumi' ? LUMI_X : this.playerX;
     const baseY = who === 'lumi' ? LUMI_Y : this.playerY;
+    // Lumi (Container) has natural scale 1.0; Thomas (Image) has setDisplaySize-driven scale
+    const sx = who === 'lumi' ? 1 : this.playerNatScaleX;
+    const sy = who === 'lumi' ? 1 : this.playerNatScaleY;
     this.tweens.killTweensOf(container);
 
     switch (action) {
       case 'sit':
         this.tweens.add({
           targets: container,
-          scaleY: 0.62, y: baseY + 18,
+          scaleY: sy * 0.62, y: baseY + 18,
           duration: 280, ease: 'Back.out',
           onComplete: () => this.tweens.add({
-            targets: container, scaleY: 1, y: baseY,
+            targets: container, scaleY: sy, y: baseY,
             duration: 260, delay: 900, ease: 'Back.out',
+            onComplete: () => { (container as Phaser.GameObjects.Image).scaleY = sy; },
           }),
         });
         break;
@@ -1094,6 +1200,7 @@ export class MainScene extends Phaser.Scene {
           targets: container,
           y: baseY - 22,
           duration: 200, ease: 'Sine.out', yoyo: true,
+          onComplete: () => { (container as Phaser.GameObjects.Image).y = baseY; },
         });
         break;
       case 'listen':
@@ -1107,8 +1214,9 @@ export class MainScene extends Phaser.Scene {
       case 'look':
         this.tweens.add({
           targets: container,
-          scaleX: 1.12, scaleY: 1.12,
+          scaleX: sx * 1.12, scaleY: sy * 1.12,
           duration: 200, ease: 'Sine.out', yoyo: true, repeat: 1,
+          onComplete: () => { (container as Phaser.GameObjects.Image).scaleX = sx; (container as Phaser.GameObjects.Image).scaleY = sy; },
         });
         break;
       case 'write':
@@ -1139,8 +1247,9 @@ export class MainScene extends Phaser.Scene {
       case 'stop':
         this.tweens.add({
           targets: container,
-          scaleX: 1.22, scaleY: 1.22,
+          scaleX: sx * 1.22, scaleY: sy * 1.22,
           duration: 120, ease: 'Sine.out', yoyo: true,
+          onComplete: () => { (container as Phaser.GameObjects.Image).scaleX = sx; (container as Phaser.GameObjects.Image).scaleY = sy; },
         });
         break;
     }

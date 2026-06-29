@@ -52,6 +52,7 @@ export interface UICallbacks {
   onColorChange: (id: string) => void;
   onColorPreview: (id: string) => void; // swap Thomas texture for try-on without saving
   onColorUnlock: (id: string, cost: number) => void;
+  onParentDashboardOpen: () => void;
 }
 
 export class GameUI {
@@ -78,6 +79,7 @@ export class GameUI {
   private onColorChange!: (id: string) => void;
   private onColorPreview!: (id: string) => void;
   private onColorUnlock!: (id: string, cost: number) => void;
+  private onParentDashboardOpen!: () => void;
   // Try-on state
   private savedSkinId = 'azul';
   private previewId: string | null = null;
@@ -122,6 +124,7 @@ export class GameUI {
     this.onColorChange = cbs.onColorChange;
     this.onColorPreview = cbs.onColorPreview;
     this.onColorUnlock = cbs.onColorUnlock;
+    this.onParentDashboardOpen = cbs.onParentDashboardOpen;
 
     // Coin chip opens customizer
     this.q('#coin-chip').addEventListener('click', () => this.open('customizer'));
@@ -431,6 +434,7 @@ export class GameUI {
         if (Number(btn.textContent) === this.gateAnswer) {
           this.close('parent-gate');
           this.open('parent-dashboard');
+          this.onParentDashboardOpen();
         } else {
           btn.style.background = '#ffe1e6';
           setTimeout(() => { btn.style.background = ''; }, 600);
