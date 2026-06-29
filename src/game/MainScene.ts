@@ -11,7 +11,7 @@ import { ACTIVE_COMMANDS, type CommandWord, type CommandAction } from '../conten
 import type { VocabItem } from '../content/vocabulary';
 import { drawIsland } from '../drawing/drawIsland';
 import { drawRocksAndFlowers, drawForeground } from '../drawing/drawDecorations';
-import { drawBadge, ITEM_FRAME } from '../drawing/drawItem';
+import { drawBadge, ITEM_KEY } from '../drawing/drawItem';
 
 // ── Island growth milestones — one decoration per Chispa collected ────────────
 // Positions are kept in the UPPER island (y < 360) or FAR EDGES (x < 210 or x > 590)
@@ -152,10 +152,9 @@ export class MainScene extends Phaser.Scene {
   // ── Phaser lifecycle ──────────────────────────────────────────────────────
 
   preload(): void {
-    this.load.spritesheet('vocab', 'assets/vocab_sheet_alpha.png', {
-      frameWidth: 384,
-      frameHeight: 341,
-    });
+    (['apple','banana','strawberry','flower','star','ball',
+      'fish','frog','bird','butterfly','mushroom','bone'] as const)
+      .forEach(k => this.load.image(`vocab_${k}`, `assets/vocab_${k}.png`));
     // Palm tree — white bg removed by process-palm-tree.mjs
     this.load.image('palm', 'assets/palm_tree_alpha.png');
     // Scene background
@@ -340,7 +339,7 @@ export class MainScene extends Phaser.Scene {
     this.playerNatScaleY = this.playerImg.scaleY;
 
     // Carry icon — floats above Thomas during give quests, hidden otherwise
-    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab', 0)
+    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab_apple')
       .setDisplaySize(44, 39).setDepth(23).setVisible(false);
 
     // Pulse ring under Lumi — visible during give quest carry phase
@@ -729,7 +728,7 @@ export class MainScene extends Phaser.Scene {
       const badgeGfx = this.add.graphics();
       drawBadge(badgeGfx);
 
-      const itemImg  = this.add.image(0, 0, 'vocab', ITEM_FRAME[spec.vocab.model]).setDisplaySize(66, 58);
+      const itemImg  = this.add.image(0, 0, ITEM_KEY[spec.vocab.model]).setDisplaySize(66, 58);
       if (spec.colorOverride !== undefined) itemImg.setTint(spec.colorOverride);
 
       const spotGfx = this.add.graphics();
@@ -839,7 +838,7 @@ export class MainScene extends Phaser.Scene {
     });
 
     if (result.outcome === 'pickup') {
-      this.carryIcon.setFrame(ITEM_FRAME[wo.vocab.model]);
+      this.carryIcon.setTexture(ITEM_KEY[wo.vocab.model]);
       this.clips.speak(`carrying-${wo.vocab.id}`, `¡Sí! Dale ${wo.vocab.say} a Lumi.`);
       return;
     }
