@@ -9,6 +9,7 @@ import type { VocabItem } from '../content/vocabulary';
 import type { QuestKind } from '../content/quests';
 import { QUEST_ICON } from '../content/quests';
 import type { ParentSummary } from './ProgressStore';
+import { ICONS, hydrateIcons } from '../content/icons';
 
 const chispaImg = (id: string) => `assets/chispa_${id}.png`;
 
@@ -86,6 +87,7 @@ export class GameUI {
   private previewCost = 0;
 
   constructor(cbs: UICallbacks) {
+    hydrateIcons();
     this.q('#play-button').addEventListener('click', () => cbs.onPlay());
     this.replayButton.addEventListener('click', () => cbs.onReplay());
 
@@ -152,13 +154,13 @@ export class GameUI {
   }
 
   setQuest(kind: QuestKind, speaking: boolean): void {
-    this.questIcon.textContent = QUEST_ICON[kind];
+    this.questIcon.innerHTML = ICONS[QUEST_ICON[kind]];
     this.questCard.classList.toggle('speaking', speaking);
   }
 
   setPalCount(n: number): void {
     this.palCount.textContent = String(n);
-    this.palButton.querySelector('.hud-chip__icon')!.textContent = n > 0 ? '✨' : '🥚';
+    this.palButton.querySelector('.hud-chip__icon')!.innerHTML = n > 0 ? ICONS.sparkle : ICONS.egg;
   }
 
   applySettings(muted: boolean, slow: boolean, calm: boolean, playerColorId?: string): void {
@@ -211,7 +213,7 @@ export class GameUI {
       btn.innerHTML = `
         <div class="color-orb__circle" style="background:${css}"></div>
         <span class="color-orb__label">${label}</span>
-        <span class="color-orb__hint">${affordable ? 'Probar' : ''} ${cost} 🪙</span>
+        <span class="color-orb__hint">${affordable ? 'Probar' : ''} ${cost} <span class="icon">${ICONS.coin}</span></span>
       `;
       if (affordable) {
         btn.addEventListener('click', () => {

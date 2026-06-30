@@ -9,25 +9,27 @@ export type CommandAction =
   | 'sit' | 'stand' | 'listen' | 'look'
   | 'write' | 'draw' | 'walk' | 'stop';
 
+import type { IconName } from './icons';
+
 export interface CommandWord {
   id: string;
   es: string;          // spoken Spanish command (what Lumi says)
   en: string;          // English gloss (parent dashboard only — never shown to Thomas)
-  icon: string;        // emoji for the action tile
+  icon: IconName;       // action tile icon
   action: CommandAction;
 }
 
 export const CLASSROOM_COMMANDS: CommandWord[] = [
   // Batch 1 — introduce first (most common classroom commands)
-  { id: 'sientate',  es: 'Siéntate',  en: 'Sit down', icon: '🪑', action: 'sit'    },
-  { id: 'levantate', es: 'Levántate', en: 'Stand up',  icon: '⬆️', action: 'stand'  },
-  { id: 'escucha',   es: 'Escucha',   en: 'Listen',    icon: '👂', action: 'listen' },
-  { id: 'mira',      es: 'Mira',      en: 'Look',      icon: '👀', action: 'look'   },
+  { id: 'sientate',  es: 'Siéntate',  en: 'Sit down', icon: 'armchair',   action: 'sit'    },
+  { id: 'levantate', es: 'Levántate', en: 'Stand up',  icon: 'arrowUp',    action: 'stand'  },
+  { id: 'escucha',   es: 'Escucha',   en: 'Listen',    icon: 'ear',        action: 'listen' },
+  { id: 'mira',      es: 'Mira',      en: 'Look',      icon: 'eyes',       action: 'look'   },
   // Batch 2
-  { id: 'escribe',   es: 'Escribe',   en: 'Write',     icon: '✏️', action: 'write'  },
-  { id: 'dibuja',    es: 'Dibuja',    en: 'Draw',      icon: '🎨', action: 'draw'   },
-  { id: 'camina',    es: 'Camina',    en: 'Walk',      icon: '🚶', action: 'walk'   },
-  { id: 'para',      es: '¡Para!',    en: 'Stop',      icon: '✋', action: 'stop'   },
+  { id: 'escribe',   es: 'Escribe',   en: 'Write',     icon: 'pencil',     action: 'write'  },
+  { id: 'dibuja',    es: 'Dibuja',    en: 'Draw',      icon: 'paintBrush', action: 'draw'   },
+  { id: 'camina',    es: 'Camina',    en: 'Walk',      icon: 'personWalk', action: 'walk'   },
+  { id: 'para',      es: '¡Para!',    en: 'Stop',      icon: 'handPalm',   action: 'stop'   },
 ];
 
 export const ACTIVE_COMMANDS = CLASSROOM_COMMANDS.slice(0, 8);

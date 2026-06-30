@@ -8,6 +8,7 @@ import { SpanishVoice } from '../systems/SpanishVoice';
 import { praise, nudge } from '../content/quests';
 import { MEADOW_VOCAB } from '../content/vocabulary';
 import { ACTIVE_COMMANDS, type CommandWord, type CommandAction } from '../content/commands';
+import { ICONS } from '../content/icons';
 import type { VocabItem } from '../content/vocabulary';
 import { drawIsland } from '../drawing/drawIsland';
 import { drawRocksAndFlowers, drawForeground } from '../drawing/drawDecorations';
@@ -234,7 +235,7 @@ export class MainScene extends Phaser.Scene {
           if (isFirst) {
             this.burstConfetti(this.playerX, this.playerY, 80);
             this.tweens.add({ targets: this.playerImg, scaleX: nsx * 1.28, scaleY: nsy * 1.28, duration: 220, ease: 'Back.out', yoyo: true, onComplete: () => { this.playerImg.scaleX = nsx; this.playerImg.scaleY = nsy; } });
-            this.ui.showToast('✨', '¡Nuevo look!');
+            this.ui.showToast(ICONS.sparkle, '¡Nuevo look!');
           } else {
             this.burstConfetti(this.playerX, this.playerY, 28);
             this.tweens.add({ targets: this.playerImg, scaleX: nsx * 1.14, scaleY: nsy * 1.14, duration: 180, ease: 'Back.out', yoyo: true, onComplete: () => { this.playerImg.scaleX = nsx; this.playerImg.scaleY = nsy; } });
@@ -924,7 +925,7 @@ export class MainScene extends Phaser.Scene {
     const { quest, event } = this.questDir.next();
 
     if (event.unlockedWord) {
-      this.ui.showToast('🆕', `Nueva palabra: ${event.unlockedWord.es}!`);
+      this.ui.showToast(ICONS.sparkle, `Nueva palabra: ${event.unlockedWord.es}!`);
       await this.clips.speakAsync('new-word', '¡Nueva palabra!');
     }
     if (event.awardCreature) this.pendingCreature = event.awardCreature.id;
@@ -945,7 +946,7 @@ export class MainScene extends Phaser.Scene {
     this.placeIslandDecos(true); // animate in any newly unlocked island element
 
     const vocab = MEADOW_VOCAB.find(v => v.id === vocabId)!;
-    this.ui.showToast('✨', `¡Nueva Chispa! ${vocab.es}`);
+    this.ui.showToast(ICONS.sparkle, `¡Nueva Chispa! ${vocab.es}`);
     this.sfx.play('hatch');
     this.clips.cancel();
     void this.clips.speakAsync('new-chispa', '¡Nueva Chispa!');
@@ -1186,7 +1187,7 @@ export class MainScene extends Phaser.Scene {
       const tile  = document.getElementById(`simon-tile-${i}`)!;
       const icon  = tile.querySelector('.simon-tile__icon')!;
       const label = tile.querySelector('.simon-tile__label')!;
-      icon.textContent  = cmd.icon;
+      icon.innerHTML     = ICONS[cmd.icon];
       label.textContent = cmd.es;
 
       tile.classList.remove('correct', 'wrong', 'pressed');

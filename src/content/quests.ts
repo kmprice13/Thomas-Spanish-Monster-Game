@@ -7,16 +7,17 @@
  * grammar rule; they just hear more complex sentences as they succeed.
  */
 import type { ColorWord, NumberWord, VocabItem } from './vocabulary';
+import type { IconName } from './icons';
 
 export type QuestKind = 'find' | 'touch' | 'give' | 'count' | 'color';
 
 /** A short, kid-readable icon hint for the command verb (no English words). */
-export const QUEST_ICON: Record<QuestKind, string> = {
-  find: '🔍',
-  touch: '👆',
-  give: '🎁',
-  count: '🔢',
-  color: '🎨',
+export const QUEST_ICON: Record<QuestKind, IconName> = {
+  find: 'magnifyingGlass',
+  touch: 'handTap',
+  give: 'gift',
+  count: 'listNumbers',
+  color: 'palette',
 };
 
 export interface SpokenLine {

@@ -18,21 +18,21 @@
       <!-- ============================ Gameplay HUD ============================ -->
       <section id="hud" class="hidden" aria-live="polite">
         <button id="pal-button" class="hud-chip" type="button" aria-label="My monster pals">
-          <span class="hud-chip__icon">🥚</span><span id="pal-count" class="hud-chip__count">0</span>
+          <span class="hud-chip__icon" data-icon="egg"></span><span id="pal-count" class="hud-chip__count">0</span>
         </button>
         <button id="coin-chip" class="hud-chip" type="button" aria-label="Monedas — tap to customize Thomas">
-          🪙<span id="coin-count" class="hud-chip__count">0</span>
+          <span data-icon="coin"></span><span id="coin-count" class="hud-chip__count">0</span>
         </button>
 
         <div id="quest-card" role="status">
-          <span id="quest-icon">🔍</span>
+          <span id="quest-icon" data-icon="magnifyingGlass"></span>
           <button id="replay-button" type="button" aria-label="Hear it again">
-            <span class="replay-wave"></span>🔊
+            <span class="replay-wave"></span><span data-icon="speakerHigh"></span>
           </button>
         </div>
 
         <button id="settings-button" class="hud-chip" type="button" aria-label="Settings">
-          <span class="hud-chip__icon">⚙️</span>
+          <span class="hud-chip__icon" data-icon="gear"></span>
         </button>
       </section>
 
@@ -78,7 +78,7 @@
           <h1 class="start-title">Isla&nbsp;Monstruo</h1>
           <p class="start-sub">Spanish Monster Island</p>
           <button id="play-button" class="big-button" type="button">▶&nbsp;Jugar</button>
-          <button id="customizer-button" class="secondary-button" type="button">🎨 Personalizar a Thomas</button>
+          <button id="customizer-button" class="secondary-button" type="button"><span class="icon" data-icon="palette"></span> Personalizar a Thomas</button>
           <p id="voice-note" class="start-note"></p>
         </div>
       </div>
@@ -95,18 +95,18 @@
               <div class="customizer-preview">
                 <img id="customizer-thomas" src="" alt="Thomas" class="customizer-thomas-img" />
               </div>
-              <p class="customizer-balance">🪙 <span id="customizer-coins">0</span> monedas</p>
+              <p class="customizer-balance"><span class="icon" data-icon="coin"></span> <span id="customizer-coins">0</span> monedas</p>
             </div>
             <div class="customizer-right">
               <p class="customizer-section-label">Colores gratis</p>
               <div id="customizer-free" class="color-orbs"></div>
-              <p class="customizer-section-label customizer-section-label--earned">Gana más jugando 🔒</p>
+              <p class="customizer-section-label customizer-section-label--earned">Gana más jugando <span class="icon" data-icon="lock"></span></p>
               <div id="customizer-earned" class="color-orbs"></div>
             </div>
           </div>
           <div id="customizer-confirm" class="customizer-confirm hidden">
             <button id="customizer-cancel-btn" class="confirm-cancel" type="button">✕ Cancelar</button>
-            <button id="customizer-buy-btn" class="confirm-buy" type="button">¡Comprar! <span id="customizer-buy-cost">10</span> 🪙</button>
+            <button id="customizer-buy-btn" class="confirm-buy" type="button">¡Comprar! <span id="customizer-buy-cost">10</span> <span class="icon" data-icon="coin"></span></button>
           </div>
         </div>
       </div>
@@ -119,7 +119,7 @@
             <button class="icon-close" data-close="pal-book" type="button" aria-label="Close">✕</button>
           </header>
           <div id="pal-grid" class="pal-grid"></div>
-          <p class="panel__hint">Toca una Chispa para escuchar su palabra 🔊</p>
+          <p class="panel__hint">Toca una Chispa para escuchar su palabra <span class="icon" data-icon="speakerHigh"></span></p>
         </div>
       </div>
 
@@ -131,18 +131,18 @@
             <button class="icon-close" data-close="settings-panel" type="button" aria-label="Close">✕</button>
           </header>
           <label class="toggle-row">
-            <span>🎵 Sound</span>
+            <span><span class="icon" data-icon="musicNotes"></span> Sound</span>
             <input id="set-sound" type="checkbox" checked />
           </label>
           <label class="toggle-row">
-            <span>🐢 Slower Spanish</span>
+            <span><span class="icon" data-icon="gauge"></span> Slower Spanish</span>
             <input id="set-slow" type="checkbox" />
           </label>
           <label class="toggle-row">
-            <span>🌙 Calm mode (less motion)</span>
+            <span><span class="icon" data-icon="moon"></span> Calm mode (less motion)</span>
             <input id="set-calm" type="checkbox" />
           </label>
-          <button id="customizer-settings-button" class="text-button" type="button">🎨 Personalizar a Thomas →</button>
+          <button id="customizer-settings-button" class="text-button" type="button"><span class="icon" data-icon="palette"></span> Personalizar a Thomas →</button>
           <button id="grownups-button" class="text-button" type="button">For grown-ups →</button>
         </div>
       </div>
