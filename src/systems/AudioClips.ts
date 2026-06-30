@@ -56,7 +56,7 @@ export class AudioClips {
     return new Promise((resolve) => {
       let el = this.elements.get(id);
       if (!el) {
-        el = new Audio(`/audio/${id}.mp3`);
+        el = new Audio(`/audio/${id}.m4a`);
         this.elements.set(id, el);
       }
       el.currentTime = 0;

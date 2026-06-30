@@ -10,7 +10,7 @@
   --shadow: 0 5px 0 var(--border);
   --px: 8px;           /* standard pixel-art corner radius */
   color: var(--ink);
-  font-family: "Baloo 2", "Quicksand", "Nunito", "Segoe UI Rounded", "Avenir Next", system-ui, sans-serif;
+  font-family: "Fredoka", "Nunito", system-ui, sans-serif;
   font-synthesis: none;
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
@@ -444,31 +444,27 @@ body {
 
 /* Chispa card inside each pal-cell */
 .chispa-card {
-  position: relative;
-  width: 72px;
-  height: 80px;
-  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
 }
 
 .chispa-img {
-  width: 72px;
-  height: 72px;
+  width: 62px;
+  height: 62px;
   object-fit: contain;
   display: block;
 }
 
-/* Word printed on the belly patch */
+/* Word label below the creature */
 .chispa-belly {
-  position: absolute;
-  top: 60%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 9px;
-  font-weight: 900;
+  font-family: "Bubblegum Sans", "Fredoka", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
   color: #3a1800;
   white-space: nowrap;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
-  letter-spacing: -0.3px;
+  text-align: center;
 }
 
 .pal-cell.locked .chispa-img {
@@ -477,7 +473,6 @@ body {
 
 .pal-cell.locked .chispa-belly {
   color: #aaa;
-  text-shadow: none;
 }
 
 /* ====================== Lumi Says overlay ====================== */
@@ -575,6 +570,9 @@ body {
 .customizer-left {
   flex: 0 0 130px;
   text-align: center;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
 }
 
 .customizer-right {

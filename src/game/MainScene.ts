@@ -159,8 +159,8 @@ export class MainScene extends Phaser.Scene {
     this.load.image('palm', 'assets/palm_tree_alpha.png');
     // Scene background
     this.load.image('bg', 'assets/bg.png');
-    // Chispa collectible creature
-    this.load.image('chispa', 'assets/chispa_base.png');
+    // Chispa collectible creatures — one per vocab word
+    MEADOW_VOCAB.forEach(v => this.load.image(`chispa_${v.id}`, `assets/chispa_${v.id}.png`));
     // Thomas — one hand-crafted skin per choice (free + all earned)
     MainScene.ALL_SKIN_IDS.forEach(id => this.load.image(`thomas_${id}`, `assets/thomas_${id}.png`));
     // Lumi — colored NPC sprite + portrait for start screen
@@ -240,6 +240,11 @@ export class MainScene extends Phaser.Scene {
     this.ui.buildCustomizer(this.progress.unlockedColors, this.progress.settings.playerColorId, this.progress.coins);
     this.ui.updateCoins(this.progress.coins);
 
+    // Disable camera culling — the scene fits entirely in the 800×600 viewport so
+    // culling has no benefit, and Phaser's cull incorrectly excludes edge-position
+    // sprites when displaySize (120px) diverges from texture size (1254px) (issue #20).
+    this.cameras.main.skipCull = true;
+
     // ── Scene background image (depth -1) ────────────────────────────────
     // 1448×1086 source → exact 4:3 match for 800×600 canvas
     this.add.image(400, 300, 'bg').setDisplaySize(800, 600).setDepth(-1);
@@ -312,7 +317,7 @@ export class MainScene extends Phaser.Scene {
     this.speechBubbleGfx = this.add.graphics();
     this.speechBubbleText = this.add.text(0, -98, '', {
       fontSize: '22px',
-      fontFamily: '"Nunito", "Quicksand", "Arial Rounded MT Bold", system-ui, sans-serif',
+      fontFamily: '"Fredoka", system-ui, sans-serif',
       color: '#5a3200',
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
@@ -544,6 +549,7 @@ export class MainScene extends Phaser.Scene {
       const bobY = this.playerY + moveBob + idleBob;
       this.playerImg.x = this.playerX;
       this.playerImg.y = bobY;
+      if (!this.playerImg.visible) this.playerImg.setVisible(true);
       this.playerShadow.setPosition(this.playerX, bobY + 65);
     }
 
@@ -883,7 +889,7 @@ export class MainScene extends Phaser.Scene {
     this.ui.updateCoins(this.progress.coins);
     const txt = this.add.text(this.playerX, this.playerY - 80, `+${whole} 🪙`, {
       fontSize: '26px',
-      fontFamily: '"Nunito", "Quicksand", system-ui, sans-serif',
+      fontFamily: '"Fredoka", system-ui, sans-serif',
       color: '#ffd700',
       fontStyle: 'bold',
       stroke: '#3a1800',

@@ -83,12 +83,33 @@ function processThomas() {
 }
 
 // ── Process Chispa ────────────────────────────────────────────────────────────
+// Source files live in scripts/Chispa designs/Meadow/ named by model key.
+// Output files go to public/assets/ named by vocab ID (what the game uses).
+const CHISPA_MEADOW = [
+  { model: 'apple',       id: 'manzana'  },
+  { model: 'banana',      id: 'platano'  },
+  { model: 'strawberry',  id: 'fresa'    },
+  { model: 'flower',      id: 'flor'     },
+  { model: 'star',        id: 'estrella' },
+  { model: 'ball',        id: 'pelota'   },
+  { model: 'fish',        id: 'pez'      },
+  { model: 'frog',        id: 'rana'     },
+  { model: 'bird',        id: 'pajaro'   },
+  { model: 'butterfly',   id: 'mariposa' },
+  { model: 'mushroom',    id: 'seta'     },
+  { model: 'bone',        id: 'hueso'    },
+];
+
 function processChispa() {
-  const img = PNG.sync.read(readFileSync('scripts/Chispa designs/chispa_base.png'));
-  const { width, height, data } = img;
-  removeBackground(data, width, height);
-  writeFileSync('public/assets/chispa_base.png', PNG.sync.write(img));
-  console.log(`Done → public/assets/chispa_base.png (${width}×${height})`);
+  for (const { model, id } of CHISPA_MEADOW) {
+    const src = `scripts/Chispa designs/Meadow/chispa_${model}.png`;
+    const dest = `public/assets/chispa_${id}.png`;
+    const img = PNG.sync.read(readFileSync(src));
+    const { width, height, data } = img;
+    removeBackground(data, width, height);
+    writeFileSync(dest, PNG.sync.write(img));
+    console.log(`  → ${dest} (${width}×${height})`);
+  }
 }
 
 processThomas();

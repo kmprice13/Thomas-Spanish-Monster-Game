@@ -8,6 +8,9 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&family=Fredoka:wght@300..700&display=swap" rel="stylesheet" />
     <title>Isla Monstruo — Spanish Monster Island</title>
   </head>
   <body>
@@ -82,19 +85,25 @@
 
       <!-- ============================ Customizer ============================ -->
       <div id="customizer" class="overlay hidden">
-        <div class="panel">
+        <div class="panel panel--wide">
           <header class="panel__head">
             <h2>Color de Thomas</h2>
             <button class="icon-close" id="customizer-close" type="button" aria-label="Close">✕</button>
           </header>
-          <div class="customizer-preview">
-            <img id="customizer-thomas" src="" alt="Thomas" class="customizer-thomas-img" />
+          <div class="customizer-body">
+            <div class="customizer-left">
+              <div class="customizer-preview">
+                <img id="customizer-thomas" src="" alt="Thomas" class="customizer-thomas-img" />
+              </div>
+              <p class="customizer-balance">🪙 <span id="customizer-coins">0</span> monedas</p>
+            </div>
+            <div class="customizer-right">
+              <p class="customizer-section-label">Colores gratis</p>
+              <div id="customizer-free" class="color-orbs"></div>
+              <p class="customizer-section-label customizer-section-label--earned">Gana más jugando 🔒</p>
+              <div id="customizer-earned" class="color-orbs"></div>
+            </div>
           </div>
-          <p class="customizer-balance">🪙 <span id="customizer-coins">0</span> monedas</p>
-          <p class="customizer-section-label">Colores gratis</p>
-          <div id="customizer-free" class="color-orbs"></div>
-          <p class="customizer-section-label customizer-section-label--earned">Gana más jugando 🔒</p>
-          <div id="customizer-earned" class="color-orbs"></div>
           <div id="customizer-confirm" class="customizer-confirm hidden">
             <button id="customizer-cancel-btn" class="confirm-cancel" type="button">✕ Cancelar</button>
             <button id="customizer-buy-btn" class="confirm-buy" type="button">¡Comprar! <span id="customizer-buy-cost">10</span> 🪙</button>

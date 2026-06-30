@@ -10,7 +10,7 @@ import type { QuestKind } from '../content/quests';
 import { QUEST_ICON } from '../content/quests';
 import type { ParentSummary } from './ProgressStore';
 
-const CHISPA_IMG = 'assets/chispa_base.png';
+const chispaImg = (id: string) => `assets/chispa_${id}.png`;
 
 // ── Color / skin definitions — single source of truth for the customizer ──────
 const FREE_COLORS = [
@@ -315,7 +315,7 @@ export class GameUI {
       cell.type = 'button';
       cell.innerHTML = `
         <div class="chispa-card">
-          <img src="${CHISPA_IMG}" class="chispa-img" alt="" />
+          <img src="${chispaImg(v.id)}" class="chispa-img" alt="" />
           <span class="chispa-belly">${collected ? v.es : '?'}</span>
         </div>`;
       if (collected) {
