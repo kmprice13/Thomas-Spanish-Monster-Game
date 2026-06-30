@@ -12,6 +12,10 @@ export const ITEM_KEY: Record<ModelKey, string> = {
   book: 'vocab_book', backpack: 'vocab_backpack', scissors: 'vocab_scissors',
   glue: 'vocab_glue', eraser: 'vocab_eraser', notebook: 'vocab_notebook',
   ruler: 'vocab_ruler',
+  bucket: 'vocab_bucket', coral: 'vocab_coral', crab: 'vocab_crab',
+  dolphin: 'vocab_dolphin', jellyfish: 'vocab_jellyfish', sandcastle: 'vocab_sandcastle',
+  seagull: 'vocab_seagull', seashell: 'vocab_seashell', turtle: 'vocab_turtle',
+  wave: 'vocab_wave',
 };
 
 const INK = 0x120d1a;

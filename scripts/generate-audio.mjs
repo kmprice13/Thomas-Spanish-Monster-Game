@@ -60,6 +60,17 @@ const VOCAB = [
   { id: 'borrador',  article: 'el',  word: 'borrador'  },
   { id: 'cuaderno',  article: 'el',  word: 'cuaderno'  },
   { id: 'regla',     article: 'la',  word: 'regla'     },
+  // Beach biome
+  { id: 'cubeta',   article: 'la',  word: 'cubeta'   },
+  { id: 'coral',    article: 'el',  word: 'coral'    },
+  { id: 'cangrejo', article: 'el',  word: 'cangrejo' },
+  { id: 'delfin',   article: 'el',  word: 'delfín'   },
+  { id: 'medusa',   article: 'la',  word: 'medusa'   },
+  { id: 'castillo', article: 'el',  word: 'castillo' },
+  { id: 'gaviota',  article: 'la',  word: 'gaviota'  },
+  { id: 'concha',   article: 'la',  word: 'concha'   },
+  { id: 'tortuga',  article: 'la',  word: 'tortuga'  },
+  { id: 'ola',      article: 'la',  word: 'ola'      },
 ];
 
 const PRAISE = [

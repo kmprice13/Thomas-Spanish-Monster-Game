@@ -50,14 +50,16 @@ const PLAYER_SPEED   = 160;   // px/s
 const COLLECT_RADIUS = 38;    // px proximity to collect
 const DELIVERY_RADIUS = 48;   // px proximity to Lumi for give quests
 // Natural scatter positions — offset by +65 from original to match ISLAND_CY=375
+// Four positions form a semicircle (rx=185, ry=75) centred at (400,383):
+// top-left (180°), lower-left (240°), lower-right (300°), top-right (360°)
 const ITEM_SCATTER: ReadonlyArray<{ x: number; y: number }> = [
-  { x: 255, y: 437 },  // lower-left (near rock cluster)
-  { x: 545, y: 437 },  // lower-right (near rock cluster)
-  { x: 215, y: 383 },  // far left
-  { x: 585, y: 383 },  // far right
-  { x: 400, y: 505 },  // bottom center
-  { x: 338, y: 485 },  // inner left
-  { x: 462, y: 485 },  // inner right
+  { x: 215, y: 383 },  // top-left
+  { x: 308, y: 448 },  // lower-left
+  { x: 493, y: 448 },  // lower-right
+  { x: 585, y: 383 },  // top-right
+  { x: 400, y: 505 },  // bottom center (overflow)
+  { x: 338, y: 485 },  // inner left (overflow)
+  { x: 462, y: 485 },  // inner right (overflow)
 ];
 
 type Phase = 'start' | 'introducing' | 'speaking' | 'playing' | 'celebrating' | 'hatching' | 'simon';
@@ -155,7 +157,9 @@ export class MainScene extends Phaser.Scene {
     (['apple','banana','strawberry','flower','star','ball',
       'fish','frog','bird','butterfly','mushroom','bone',
       'pencil','crayon','paper','book','backpack','scissors',
-      'glue','eraser','notebook','ruler'] as const)
+      'glue','eraser','notebook','ruler',
+      'bucket','coral','crab','dolphin','jellyfish','sandcastle',
+      'seagull','seashell','turtle','wave'] as const)
       .forEach(k => this.load.image(`vocab_${k}`, `assets/vocab_${k}.png`));
     // Palm tree — white bg removed by process-palm-tree.mjs
     this.load.image('palm', 'assets/palm_tree_alpha.png');
@@ -726,7 +730,7 @@ export class MainScene extends Phaser.Scene {
     for (const wo of this.worldObjects) wo.container.destroy();
     this.worldObjects = [];
 
-    const specs = this.questDir.buildSpawnSet(7);
+    const specs = this.questDir.buildSpawnSet(4);
 
     specs.forEach((spec, i) => {
       const pos = ITEM_SCATTER[i] ?? ITEM_SCATTER[ITEM_SCATTER.length - 1];
@@ -872,6 +876,15 @@ export class MainScene extends Phaser.Scene {
     this.celebrateTimer = 1.4;
     this.npcBounceTimer = 1.0;
     this.awardCoin();
+    this.velX = 0;
+    this.velY = 0;
+    this.tweens.add({
+      targets: this,
+      playerX: PLAYER_START_X,
+      playerY: PLAYER_START_Y,
+      duration: 600,
+      ease: 'Quad.Out',
+    });
   }
 
   private coinRate(): number {

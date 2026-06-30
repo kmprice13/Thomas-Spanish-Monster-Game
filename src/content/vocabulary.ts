@@ -18,7 +18,8 @@ export type VocabCategory =
   | 'toy'
   | 'color'
   | 'number'
-  | 'school';
+  | 'school'
+  | 'ocean';
 
 export type ModelKey =
   | 'apple'
@@ -43,7 +44,17 @@ export type ModelKey =
   | 'glue'
   | 'eraser'
   | 'notebook'
-  | 'ruler';
+  | 'ruler'
+  | 'bucket'
+  | 'coral'
+  | 'crab'
+  | 'dolphin'
+  | 'jellyfish'
+  | 'sandcastle'
+  | 'seagull'
+  | 'seashell'
+  | 'turtle'
+  | 'wave';
 
 export interface VocabItem {
   /** Stable id used for progress tracking + save data. */
@@ -109,6 +120,17 @@ export const MEADOW_VOCAB: readonly VocabItem[] = [
   item('borrador',  'borrador',  'el', 'borradores', 'eraser',   'school', 'eraser',   0xff6b9d, 0x3aa0e2),
   item('cuaderno',  'cuaderno',  'el', 'cuadernos',  'notebook', 'school', 'notebook', 0x6abf4b, 0xffd23f),
   item('regla',     'regla',     'la', 'reglas',     'ruler',    'school', 'ruler',    0xffd23f, 0x3aa0e2),
+  // Beach biome
+  item('cubeta',   'cubeta',   'la', 'cubetas',    'bucket',    'ocean', 'bucket',    0xff6b35, 0xffd23f),
+  item('coral',    'coral',    'el', 'corales',    'coral',     'ocean', 'coral',     0xff7eb6, 0xff4444),
+  item('cangrejo', 'cangrejo', 'el', 'cangrejos',  'crab',      'ocean', 'crab',      0xe2483a, 0xff8c42),
+  item('delfin',   'delfín',   'el', 'delfines',   'dolphin',   'ocean', 'dolphin',   0x4d8cff, 0x88aacc),
+  item('medusa',   'medusa',   'la', 'medusas',    'jellyfish',  'ocean', 'jellyfish', 0xb06cff, 0xffd23f),
+  item('castillo', 'castillo', 'el', 'castillos',  'sandcastle', 'ocean', 'sandcastle',0xf6c542, 0xd4a520),
+  item('gaviota',  'gaviota',  'la', 'gaviotas',   'seagull',   'ocean', 'seagull',   0xffffff, 0xffd23f),
+  item('concha',   'concha',   'la', 'conchas',    'seashell',  'ocean', 'seashell',  0xff9966, 0xffd23f),
+  item('tortuga',  'tortuga',  'la', 'tortugas',   'turtle',    'ocean', 'turtle',    0x6abf4b, 0x4a8c2e),
+  item('ola',      'ola',      'la', 'olas',       'wave',      'ocean', 'wave',      0x3aa0e2, 0x88aacc),
 ] as const;
 
 /** Numbers 1–5 — introduced through "find N" commands, never as a list. */
