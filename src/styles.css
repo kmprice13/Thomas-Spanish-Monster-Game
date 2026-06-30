@@ -658,9 +658,9 @@ body {
 }
 
 .color-orbs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px 4px;
   margin-bottom: 4px;
 }
 
@@ -673,6 +673,9 @@ body {
   border: none;
   padding: 4px;
   cursor: pointer;
+  /* Fixed-width grid cell, not content-sized — keeps circles aligned in a
+     clean grid regardless of how wide an individual label is. */
+  min-width: 0;
 }
 
 .color-orb__circle {

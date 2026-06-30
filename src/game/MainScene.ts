@@ -144,6 +144,7 @@ export class MainScene extends Phaser.Scene {
   private simonCounter   = 0;
   private simonResolve: (() => void) | null = null;
   private simonTarget: CommandAction | null = null;
+  private advancing = false; // re-entrancy guard for advanceQuest()
 
   constructor() { super({ key: 'MainScene' }); }
 
@@ -209,6 +210,7 @@ export class MainScene extends Phaser.Scene {
       },
       onSlowChange: (s) => {
         this.voice.setBaseRate(s ? 0.72 : 0.95);
+        this.clips.setRate(s ? 0.72 : 1);
         this.progress.setSettings({ slowSpeech: s });
       },
       onCalmChange: (c) => { this.progress.setSettings({ reducedMotion: c }); },
@@ -246,7 +248,7 @@ export class MainScene extends Phaser.Scene {
     const { muted, slowSpeech, reducedMotion } = this.progress.settings;
     this.sfx.setMuted(muted);
     this.clips.setMuted(muted);
-    if (slowSpeech) this.voice.setBaseRate(0.72);
+    if (slowSpeech) { this.voice.setBaseRate(0.72); this.clips.setRate(0.72); }
     this.ui.applySettings(muted, slowSpeech, reducedMotion, this.progress.settings.playerColorId);
     this.ui.buildCustomizer(this.progress.unlockedColors, this.progress.settings.playerColorId, this.progress.coins);
     this.ui.updateCoins(this.progress.coins);
@@ -791,7 +793,12 @@ export class MainScene extends Phaser.Scene {
   // ── Evaluation ────────────────────────────────────────────────────────────
 
   private evaluateObject(wo: WorldObj): void {
-    if (this.phase !== 'playing' || !wo.active) return;
+    // evalCooldown was previously only honored by the proximity-collect loop —
+    // the separate tap-to-collect finger could still slip a second call through
+    // in the same instant (e.g. a correct proximity-collect immediately
+    // followed by a tap on another item), double-firing onQuestComplete and
+    // racing the quest-advance flow against itself (#34/#20 follow-up).
+    if (this.phase !== 'playing' || !wo.active || this.evalCooldown > 0) return;
 
     const responseMs = performance.now() - this.questStartTime;
     const result     = this.questDir.evaluateSelection({ vocabId: wo.vocab.id, colorId: wo.colorId });
@@ -914,27 +921,37 @@ export class MainScene extends Phaser.Scene {
   }
 
   private async advanceQuest(): Promise<void> {
-    this.clips.cancel();
+    // Re-entrancy guard: advanceQuest is called from per-frame timer checks
+    // (update()), so a second call could otherwise start a new quest/Simon
+    // round while a prior call's async chain (e.g. a Simon interlude) is
+    // still mid-flight, leaving both visible at once.
+    if (this.advancing) return;
+    this.advancing = true;
+    try {
+      this.clips.cancel();
 
-    // Every 4 vocab quests, run a Lumi Says interlude (2 commands)
-    this.simonCounter++;
-    if (this.simonCounter % 4 === 0) {
-      await this.runSimonInterlude();
+      // Every 4 vocab quests, run a Lumi Says interlude (2 commands)
+      this.simonCounter++;
+      if (this.simonCounter % 4 === 0) {
+        await this.runSimonInterlude();
+      }
+
+      const { quest, event } = this.questDir.next();
+
+      if (event.unlockedWord) {
+        this.ui.showToast(ICONS.sparkle, `Nueva palabra: ${event.unlockedWord.es}!`);
+        await this.clips.speakAsync('new-word', '¡Nueva palabra!');
+      }
+      if (event.awardCreature) this.pendingCreature = event.awardCreature.id;
+
+      this.spawnRound();
+      if (this.pendingCreature) return;
+
+      if (this.progress.needsIntro(quest.target.id)) await this.runIntro();
+      else this.speakQuestCommand();
+    } finally {
+      this.advancing = false;
     }
-
-    const { quest, event } = this.questDir.next();
-
-    if (event.unlockedWord) {
-      this.ui.showToast(ICONS.sparkle, `Nueva palabra: ${event.unlockedWord.es}!`);
-      await this.clips.speakAsync('new-word', '¡Nueva palabra!');
-    }
-    if (event.awardCreature) this.pendingCreature = event.awardCreature.id;
-
-    this.spawnRound();
-    if (this.pendingCreature) return;
-
-    if (this.progress.needsIntro(quest.target.id)) await this.runIntro();
-    else this.speakQuestCommand();
   }
 
   // ── Creature hatch ────────────────────────────────────────────────────────
@@ -1017,6 +1034,12 @@ export class MainScene extends Phaser.Scene {
     this.speechBubbleGfx.moveTo(13, tailY);
     this.speechBubbleGfx.lineTo(1, tailY + 18);
     this.speechBubbleGfx.strokePath();
+
+    // strokeRoundedRect above draws a full bottom edge, including straight
+    // across the tail's opening — patch over just that segment with the
+    // bubble's own fill color so the tail reads as part of one shape.
+    this.speechBubbleGfx.fillStyle(0xfff8e8, 1);
+    this.speechBubbleGfx.fillRect(-13, tailY - 2, 26, 4);
 
     this.speechBubbleGfx.setVisible(true);
     this.speechBubbleText.setVisible(true);
@@ -1110,7 +1133,9 @@ export class MainScene extends Phaser.Scene {
     const picks = shuffled.slice(0, 2);
 
     this.showSpeechBubble('¡Lumi dice!');
-    await delay(900);
+    this.sfx.play('tap');
+    await this.clips.speakAsync('lumi-dice', '¡Lumi dice!');
+    await delay(300);
 
     for (const cmd of picks) {
       await this.runSimonCommand(cmd);
@@ -1209,7 +1234,12 @@ export class MainScene extends Phaser.Scene {
   }
 
   private waitForSimonAnswer(): Promise<void> {
-    return new Promise(resolve => { this.simonResolve = resolve; });
+    return new Promise(resolve => {
+      this.simonResolve = resolve;
+      // Safety valve: if Thomas wanders off / loses interest mid-round, don't
+      // soft-lock the quest FSM forever waiting for a tap that never comes.
+      setTimeout(() => { if (this.simonResolve === resolve) resolve(); }, 30000);
+    });
   }
 
   private hideSimonTiles(): void {

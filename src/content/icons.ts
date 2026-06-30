@@ -28,11 +28,27 @@ import pencil from '../assets/icons/pencil.svg?raw';
 import paintBrush from '../assets/icons/paint-brush.svg?raw';
 import personWalk from '../assets/icons/person-walk.svg?raw';
 import handPalm from '../assets/icons/hand-palm.svg?raw';
+import timer from '../assets/icons/timer.svg?raw';
+import books from '../assets/icons/books.svg?raw';
+import checkCircle from '../assets/icons/check-circle.svg?raw';
+import trendUp from '../assets/icons/trend-up.svg?raw';
+import arrowsClockwise from '../assets/icons/arrows-clockwise.svg?raw';
+import shuffle from '../assets/icons/shuffle.svg?raw';
+import calendarCheck from '../assets/icons/calendar-check.svg?raw';
+import skipForward from '../assets/icons/skip-forward.svg?raw';
+import lightbulb from '../assets/icons/lightbulb.svg?raw';
+import star from '../assets/icons/star.svg?raw';
+import lightning from '../assets/icons/lightning.svg?raw';
+import thumbsUp from '../assets/icons/thumbs-up.svg?raw';
+import hourglass from '../assets/icons/hourglass.svg?raw';
+import xCircle from '../assets/icons/x-circle.svg?raw';
 
 export const ICONS = {
   egg, sparkle, coin, magnifyingGlass, handTap, gift, listNumbers, palette,
   speakerHigh, gear, lock, musicNotes, gauge, moon, armchair, arrowUp, ear,
   eyes, pencil, paintBrush, personWalk, handPalm,
+  timer, books, checkCircle, trendUp, arrowsClockwise, shuffle, calendarCheck,
+  skipForward, lightbulb, star, lightning, thumbsUp, hourglass, xCircle,
 } as const;
 
 export type IconName = keyof typeof ICONS;

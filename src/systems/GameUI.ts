@@ -21,27 +21,29 @@ const FREE_COLORS = [
   { id: 'naranja', label: 'Naranja', css: '#ff6b35' },
 ] as const;
 
+// Alphabetical by label (Spanish) — also gives the customizer grid a clean,
+// predictable order instead of the prior ad-hoc grouping.
 const EARNED_COLORS = [
   { id: 'alien',       label: 'Alienígena',    css: '#00ff88', cost: 10 },
+  { id: 'arcoiris',    label: 'Arcoíris',      css: '#ff6ef7', cost: 10 },
   { id: 'baby',        label: 'Baby',          css: '#9de8ff', cost: 10 },
-  { id: 'cloud',       label: 'Nube',          css: '#d8eeff', cost: 10 },
-  { id: 'hada',        label: 'Hada',          css: '#ffb8e0', cost: 10 },
-  { id: 'ghost',       label: 'Fantasma',      css: '#c8d8f0', cost: 10 },
   { id: 'brillante',   label: 'Brillante',     css: '#ffd700', cost: 10 },
-  { id: 'island',      label: 'Isla',          css: '#00c9a7', cost: 10 },
-  { id: 'origami',     label: 'Origami',       css: '#ff6b6b', cost: 10 },
-  { id: 'paint',       label: 'Pintura',       css: '#e040fb', cost: 10 },
-  { id: 'pastel',      label: 'Pastel',        css: '#ffb5c8', cost: 10 },
+  { id: 'pumpkin',     label: 'Calabaza',      css: '#ff7043', cost: 10 },
+  { id: 'sprite',      label: 'Duende',        css: '#4caf50', cost: 10 },
+  { id: 'ghost',       label: 'Fantasma',      css: '#c8d8f0', cost: 10 },
   { id: 'pharaon',     label: 'Faraón',        css: '#c8a24c', cost: 10 },
-  { id: 'pirate',      label: 'Pirata',        css: '#2a3a6a', cost: 10 },
+  { id: 'hada',        label: 'Hada',          css: '#ffb8e0', cost: 10 },
+  { id: 'island',      label: 'Isla',          css: '#00c9a7', cost: 10 },
+  { id: 'cloud',       label: 'Nube',          css: '#d8eeff', cost: 10 },
+  { id: 'origami',     label: 'Origami',       css: '#ff6b6b', cost: 10 },
+  { id: 'pastel',      label: 'Pastel',        css: '#ffb5c8', cost: 10 },
   { id: 'plushie',     label: 'Peluche',       css: '#f0c090', cost: 10 },
+  { id: 'paint',       label: 'Pintura',       css: '#e040fb', cost: 10 },
+  { id: 'pirate',      label: 'Pirata',        css: '#2a3a6a', cost: 10 },
   { id: 'prehistoric', label: 'Prehistórico',  css: '#8b7a14', cost: 10 },
   { id: 'princess',    label: 'Princesa',      css: '#d070c0', cost: 10 },
-  { id: 'pumpkin',     label: 'Calabaza',      css: '#ff7043', cost: 10 },
-  { id: 'arcoiris',    label: 'Arcoíris',      css: '#ff6ef7', cost: 10 },
-  { id: 'shark',       label: 'Tiburón',       css: '#607d8b', cost: 10 },
-  { id: 'sprite',      label: 'Duende',        css: '#4caf50', cost: 10 },
   { id: 'stealth',     label: 'Sigilo',        css: '#37474f', cost: 10 },
+  { id: 'shark',       label: 'Tiburón',       css: '#607d8b', cost: 10 },
 ] as const;
 
 export interface UICallbacks {
@@ -340,8 +342,10 @@ export class GameUI {
   updateDashboard(summary: ParentSummary): void {
     const body = this.q('#dash-body');
 
-    const stat = (icon: string, big: string | number, label: string) =>
-      `<div class="dash-stat"><div class="dash-big">${big}</div><div class="dash-label">${icon} ${label}</div></div>`;
+    const ic = (name: keyof typeof ICONS) => `<span class="icon">${ICONS[name]}</span>`;
+
+    const stat = (icon: keyof typeof ICONS, big: string | number, label: string) =>
+      `<div class="dash-stat"><div class="dash-big">${big}</div><div class="dash-label">${ic(icon)} ${label}</div></div>`;
 
     const wordPills = (items: { es: string; en: string }[], cls = '') =>
       items.map(w => `<span class="dash-pill ${cls}" title="${w.en}">${w.es}</span>`).join('');
@@ -355,61 +359,61 @@ export class GameUI {
       : null;
 
     const speedLabel = summary.avgResponseMs === 0 ? '—'
-      : summary.avgResponseMs < 2500 ? '⚡ fast (fluent!)'
-      : summary.avgResponseMs < 6000 ? '👍 normal'
-      : '🐢 slow (still learning)';
+      : summary.avgResponseMs < 2500 ? `${ic('lightning')} fast (fluent!)`
+      : summary.avgResponseMs < 6000 ? `${ic('thumbsUp')} normal`
+      : `${ic('hourglass')} slow (still learning)`;
 
     body.innerHTML = `
       <div class="dash-stats-row">
-        ${stat('🐲', summary.creaturesCollected, 'pals collected')}
-        ${stat('⏱️', summary.minutesPlayed, 'minutes played')}
-        ${stat('📚', summary.wordsTotal - summary.wordsUnseen, `/ ${summary.wordsTotal} words met`)}
+        ${stat('egg', summary.creaturesCollected, 'pals collected')}
+        ${stat('timer', summary.minutesPlayed, 'minutes played')}
+        ${stat('books', summary.wordsTotal - summary.wordsUnseen, `/ ${summary.wordsTotal} words met`)}
       </div>
 
       ${summary.wordsFluent.length ? `
         <div class="dash-section">
-          <div class="dash-section-title">✅ Fluent (${summary.wordsFluent.length})</div>
+          <div class="dash-section-title">${ic('checkCircle')} Fluent (${summary.wordsFluent.length})</div>
           <div class="dash-pills">${wordPills(summary.wordsFluent, 'fluent')}</div>
         </div>` : ''}
 
       ${summary.wordsLearning.length ? `
         <div class="dash-section">
-          <div class="dash-section-title">📈 Building (${summary.wordsLearning.length})</div>
+          <div class="dash-section-title">${ic('trendUp')} Building (${summary.wordsLearning.length})</div>
           <div class="dash-pills">${wordPills(summary.wordsLearning, 'learning')}</div>
         </div>` : ''}
 
       ${summary.wordsStruggling.length ? `
         <div class="dash-section">
-          <div class="dash-section-title">🔁 Needs more practice (${summary.wordsStruggling.length})</div>
+          <div class="dash-section-title">${ic('arrowsClockwise')} Needs more practice (${summary.wordsStruggling.length})</div>
           <div class="dash-pills">${wordPills(summary.wordsStruggling, 'struggling')}</div>
         </div>` : ''}
 
       ${confPairs ? `
         <div class="dash-section">
-          <div class="dash-section-title">🔀 Sometimes confuses</div>
+          <div class="dash-section-title">${ic('shuffle')} Sometimes confuses</div>
           <p class="dash-hint">${confPairs}</p>
         </div>` : ''}
 
       ${summary.reviewDue.length ? `
         <div class="dash-section">
-          <div class="dash-section-title">📅 Due for review today</div>
+          <div class="dash-section-title">${ic('calendarCheck')} Due for review today</div>
           <p class="dash-hint">${summary.reviewDue.join(' · ')}</p>
         </div>` : ''}
 
       ${reviewDays ? `
         <div class="dash-section">
-          <div class="dash-section-title">⏭️ Coming up</div>
+          <div class="dash-section-title">${ic('skipForward')} Coming up</div>
           <p class="dash-hint">${reviewDays}</p>
         </div>` : ''}
 
       <div class="dash-section">
-        <div class="dash-section-title">🕐 Response speed (fluent words)</div>
+        <div class="dash-section-title">${ic('gauge')} Response speed (fluent words)</div>
         <p class="dash-hint">${speedLabel}</p>
         <p class="dash-hint small">Response speed shows how confident he is. Under 2.5s = the word is solid. Over 6s = still thinking.</p>
       </div>
 
-      <div class="dash-reco">💡 ${summary.recommendation}</div>
-      <p class="dash-foot">Everything here is inferred from play patterns — no tests, no grades. 🌟</p>
+      <div class="dash-reco">${ic('lightbulb')} ${summary.recommendation}</div>
+      <p class="dash-foot">Everything here is inferred from play patterns — no tests, no grades. ${ic('star')}</p>
     `;
   }
 

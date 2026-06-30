@@ -112,6 +112,7 @@ const PHRASES = [
   ...NUDGE.map((text,  i) => ({ id: `nudge-${i}`,  text })),
   { id: 'lumi-hello',  text: '¡Hola! Soy Lumi.' },
   { id: 'lumi-ready',  text: '¿Listo? ¡Vamos!' },
+  { id: 'lumi-dice',   text: '¡Lumi dice!' },
   { id: 'new-word',    text: '¡Nueva palabra!' },
   { id: 'new-friend',  text: '¡Nuevo amigo!' },
   { id: 'new-chispa',  text: '¡Nueva Chispa!' },

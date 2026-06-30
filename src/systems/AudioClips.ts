@@ -18,9 +18,18 @@ export class AudioClips {
   private readonly voice: SpanishVoice;
   private muted = false;
   private ready = false;
+  private rate = 1;
 
   constructor(voice: SpanishVoice) {
     this.voice = voice;
+  }
+
+  /** Slow down (or restore) playback of pre-baked clips. Pitch is preserved
+   *  by the browser (HTMLMediaElement defaults preservesPitch to true), so
+   *  this reads as "talking slower," not chipmunk/deepened audio. */
+  setRate(rate: number): void {
+    this.rate = rate;
+    for (const el of this.elements.values()) el.playbackRate = rate;
   }
 
   /** Load manifest. Call once before the game starts. */
@@ -59,6 +68,7 @@ export class AudioClips {
         el = new Audio(`/audio/${id}.mp3`);
         this.elements.set(id, el);
       }
+      el.playbackRate = this.rate;
       el.currentTime = 0;
       el.onended = () => resolve();
       el.onerror = () => resolve(); // silent fallback
