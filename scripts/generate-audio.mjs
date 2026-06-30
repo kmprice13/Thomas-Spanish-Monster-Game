@@ -36,6 +36,7 @@ if (!VOICE_ID) { console.error('Missing ELEVENLABS_VOICE_ID in .env'); process.e
 
 // ── Vocabulary — mirrors src/content/vocabulary.ts ───────────────────────────
 const VOCAB = [
+  // Meadow biome
   { id: 'manzana', article: 'la', word: 'manzana' },
   { id: 'platano',  article: 'el', word: 'plátano'  },
   { id: 'fresa',    article: 'la', word: 'fresa'    },
@@ -48,6 +49,17 @@ const VOCAB = [
   { id: 'mariposa', article: 'la', word: 'mariposa' },
   { id: 'seta',     article: 'la', word: 'seta'     },
   { id: 'hueso',    article: 'el', word: 'hueso'    },
+  // La Mochila — school supplies
+  { id: 'lapiz',     article: 'el',  word: 'lápiz'     },
+  { id: 'crayon',    article: 'el',  word: 'crayón'    },
+  { id: 'papel',     article: 'el',  word: 'papel'     },
+  { id: 'libro',     article: 'el',  word: 'libro'     },
+  { id: 'mochila',   article: 'la',  word: 'mochila'   },
+  { id: 'tijera',    article: 'la',  word: 'tijera'    },
+  { id: 'pegamento', article: 'el',  word: 'pegamento' },
+  { id: 'borrador',  article: 'el',  word: 'borrador'  },
+  { id: 'cuaderno',  article: 'el',  word: 'cuaderno'  },
+  { id: 'regla',     article: 'la',  word: 'regla'     },
 ];
 
 const PRAISE = [

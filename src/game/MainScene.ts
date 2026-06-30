@@ -153,7 +153,9 @@ export class MainScene extends Phaser.Scene {
 
   preload(): void {
     (['apple','banana','strawberry','flower','star','ball',
-      'fish','frog','bird','butterfly','mushroom','bone'] as const)
+      'fish','frog','bird','butterfly','mushroom','bone',
+      'pencil','crayon','paper','book','backpack','scissors',
+      'glue','eraser','notebook','ruler'] as const)
       .forEach(k => this.load.image(`vocab_${k}`, `assets/vocab_${k}.png`));
     // Palm tree — white bg removed by process-palm-tree.mjs
     this.load.image('palm', 'assets/palm_tree_alpha.png');

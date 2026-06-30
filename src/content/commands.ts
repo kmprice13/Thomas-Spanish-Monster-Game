@@ -30,6 +30,4 @@ export const CLASSROOM_COMMANDS: CommandWord[] = [
   { id: 'para',      es: '¡Para!',    en: 'Stop',      icon: '✋', action: 'stop'   },
 ];
 
-// Active teaching batch — first 4 commands.
-// Expand to CLASSROOM_COMMANDS.slice(0, 8) once batch 1 is solid.
-export const ACTIVE_COMMANDS = CLASSROOM_COMMANDS.slice(0, 4);
+export const ACTIVE_COMMANDS = CLASSROOM_COMMANDS.slice(0, 8);

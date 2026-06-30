@@ -17,7 +17,8 @@ export type VocabCategory =
   | 'nature'
   | 'toy'
   | 'color'
-  | 'number';
+  | 'number'
+  | 'school';
 
 export type ModelKey =
   | 'apple'
@@ -32,7 +33,17 @@ export type ModelKey =
   | 'bird'
   | 'butterfly'
   | 'bone'
-  | 'gem';
+  | 'gem'
+  | 'pencil'
+  | 'crayon'
+  | 'paper'
+  | 'book'
+  | 'backpack'
+  | 'scissors'
+  | 'glue'
+  | 'eraser'
+  | 'notebook'
+  | 'ruler';
 
 export interface VocabItem {
   /** Stable id used for progress tracking + save data. */
@@ -87,6 +98,17 @@ export const MEADOW_VOCAB: readonly VocabItem[] = [
   item('mariposa', 'mariposa', 'la', 'mariposas', 'butterfly', 'animal', 'butterfly', 0xb06cff, 0xffd23f),
   item('seta', 'seta', 'la', 'setas', 'mushroom', 'nature', 'mushroom', 0xe2483a, 0xfdf3e7),
   item('hueso', 'hueso', 'el', 'huesos', 'bone', 'toy', 'bone', 0xfdf3e7, 0xd9c9a8),
+  // La Mochila — school supply cluster (highest-leverage for 1st grade dual-language)
+  item('lapiz',     'lápiz',     'el', 'lápices',    'pencil',   'school', 'pencil',   0xffd23f, 0xff7043),
+  item('crayon',    'crayón',    'el', 'crayones',   'crayon',   'school', 'crayon',   0xe2483a, 0xffd23f),
+  item('papel',     'papel',     'el', 'papeles',    'paper',    'school', 'paper',    0xf5f0e8, 0x88aacc),
+  item('libro',     'libro',     'el', 'libros',     'book',     'school', 'book',     0x3a7bd5, 0xffd23f),
+  item('mochila',   'mochila',   'la', 'mochilas',   'backpack', 'school', 'backpack', 0x6b4c9a, 0xffd23f),
+  item('tijera',    'tijera',    'la', 'tijeras',    'scissors', 'school', 'scissors', 0xe2483a, 0xc8c8c8),
+  item('pegamento', 'pegamento', 'el', 'pegamentos', 'glue',     'school', 'glue',     0xffffff, 0x3aa0e2),
+  item('borrador',  'borrador',  'el', 'borradores', 'eraser',   'school', 'eraser',   0xff6b9d, 0x3aa0e2),
+  item('cuaderno',  'cuaderno',  'el', 'cuadernos',  'notebook', 'school', 'notebook', 0x6abf4b, 0xffd23f),
+  item('regla',     'regla',     'la', 'reglas',     'ruler',    'school', 'ruler',    0xffd23f, 0x3aa0e2),
 ] as const;
 
 /** Numbers 1–5 — introduced through "find N" commands, never as a list. */

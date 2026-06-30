@@ -8,6 +8,10 @@ export const ITEM_KEY: Record<ModelKey, string> = {
   fish: 'vocab_fish', frog: 'vocab_frog', bird: 'vocab_bird',
   butterfly: 'vocab_butterfly', mushroom: 'vocab_mushroom', bone: 'vocab_bone',
   gem: 'vocab_apple',
+  pencil: 'vocab_pencil', crayon: 'vocab_crayon', paper: 'vocab_paper',
+  book: 'vocab_book', backpack: 'vocab_backpack', scissors: 'vocab_scissors',
+  glue: 'vocab_glue', eraser: 'vocab_eraser', notebook: 'vocab_notebook',
+  ruler: 'vocab_ruler',
 };
 
 const INK = 0x120d1a;
