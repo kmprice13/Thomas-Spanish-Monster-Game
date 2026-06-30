@@ -21,8 +21,9 @@ const ISLAND_MILESTONES = [
   { key: 'isle_yellow_flowers', chispaCount:  1, x: 260, y: 352, w:  64, h:  60, depth: 1 },
   { key: 'isle_pink_flowers',   chispaCount:  2, x: 527, y: 350, w:  64, h:  60, depth: 1 },
   { key: 'isle_purple_flowers', chispaCount:  3, x: 204, y: 430, w:  58, h:  54, depth: 1 },
-  // Rocks — far edges so they read as island boundary, not game objects
-  { key: 'isle_rock_small',     chispaCount:  4, x: 597, y: 432, w:  58, h:  44, depth: 1 },
+  // Rocks — far edges so they read as island boundary, not game objects.
+  // Nudged off isle_dock's footprint (was 597,432 — overlapped the dock).
+  { key: 'isle_rock_small',     chispaCount:  4, x: 580, y: 400, w:  58, h:  44, depth: 1 },
   { key: 'isle_rock_large',     chispaCount:  5, x: 206, y: 396, w:  84, h:  64, depth: 1 },
   // Bush — upper right, snug under the right palm
   { key: 'isle_bush',           chispaCount:  6, x: 522, y: 307, w:  84, h:  65, depth: 1 },
@@ -30,11 +31,12 @@ const ISLAND_MILESTONES = [
   { key: 'isle_pond',           chispaCount:  7, x: 308, y: 314, w: 128, h:  93, depth: 1 },
   // Sign — far left edge near sand, reads as decoration not an item
   { key: 'isle_sign',           chispaCount:  8, x: 213, y: 454, w:  68, h:  95, depth: 2 },
-  // Bridge + dock — far right water edge, clearly part of the scenery
-  { key: 'isle_bridge',         chispaCount:  9, x: 593, y: 452, w: 144, h:  98, depth: 1 },
+  // Dock — far right water edge, clearly part of the scenery
+  // (isle_bridge milestone removed — overlapped the dock and had a bad cutout)
   { key: 'isle_dock',           chispaCount: 10, x: 610, y: 480, w: 144, h: 106, depth: 1 },
-  // Chest — upper island near the mound (feels hidden / discovered)
-  { key: 'isle_chest',          chispaCount: 11, x: 330, y: 294, w:  76, h:  70, depth: 2 },
+  // Chest — moved off the pond (was 330,294, which sat inside it) to the
+  // clear pocket between the pond, the bush, and the center palm.
+  { key: 'isle_chest',          chispaCount: 11, x: 440, y: 320, w:  76, h:  70, depth: 2 },
 ] as const;
 
 // ── Layout (800×600 logical canvas) ──────────────────────────────────────────
@@ -46,6 +48,8 @@ const LUMI_X         = 400;
 const LUMI_Y         = 240;   // ISLAND_CY - 135
 const PLAYER_START_X = 400;
 const PLAYER_START_Y = 360;   // ISLAND_CY - 15
+const SIMON_THOMAS_X = 540;   // Lumi Says "stage" spot — clear of the tile grid at the bottom
+const SIMON_THOMAS_Y = 235;
 const PLAYER_SPEED   = 160;   // px/s
 const COLLECT_RADIUS = 38;    // px proximity to collect
 const DELIVERY_RADIUS = 48;   // px proximity to Lumi for give quests
@@ -246,10 +250,6 @@ export class MainScene extends Phaser.Scene {
     this.ui.buildCustomizer(this.progress.unlockedColors, this.progress.settings.playerColorId, this.progress.coins);
     this.ui.updateCoins(this.progress.coins);
 
-    // Disable camera culling — the scene fits entirely in the 800×600 viewport so
-    // culling has no benefit, and Phaser's cull incorrectly excludes edge-position
-    // sprites when displaySize (120px) diverges from texture size (1254px) (issue #20).
-    this.cameras.main.skipCull = true;
 
     // ── Scene background image (depth -1) ────────────────────────────────
     // 1448×1086 source → exact 4:3 match for 800×600 canvas
@@ -395,7 +395,8 @@ export class MainScene extends Phaser.Scene {
       D: Phaser.Input.Keyboard.Key;
     };
 
-    // Touch joystick — floating: appears where thumb lands, knob follows the drag
+    // Touch joystick — stick is pinned to a fixed corner (#touch-stick CSS);
+    // the knob inside it tracks the drag offset, same as before.
     this.touchStickEl = document.getElementById('touch-stick');
     this.touchKnobEl  = document.getElementById('touch-knob');
     const joystickHint = document.getElementById('joystick-hint');
@@ -409,18 +410,9 @@ export class MainScene extends Phaser.Scene {
         this.touchDy = 0;
         // Hide the static hint ring once the player has found the joystick zone
         if (joystickHint) joystickHint.style.display = 'none';
-        // Position the stick circle at the thumb's landing point
-        if (this.touchStickEl) {
-          const cvs  = this.sys.game.canvas;
-          const rect = cvs.getBoundingClientRect();
-          const sx   = rect.left + (ptr.x / 800) * rect.width;
-          const sy   = rect.top  + (ptr.y / 600) * rect.height;
-          const r    = this.touchStickEl.offsetWidth / 2 || 70;
-          this.touchStickEl.style.position = 'fixed';
-          this.touchStickEl.style.left     = `${sx - r}px`;
-          this.touchStickEl.style.top      = `${sy - r}px`;
-          this.touchStickEl.style.display  = 'block';
-        }
+        // Stick circle is CSS-pinned to the corner (see #touch-stick) — just reveal it.
+        // Drag math below still tracks from the actual touch-down point, unchanged.
+        if (this.touchStickEl) this.touchStickEl.style.display = 'block';
       }
     });
 
@@ -1105,6 +1097,13 @@ export class MainScene extends Phaser.Scene {
     this.phase = 'simon';
     this.hideSpeechBubble();
 
+    // Move Thomas up beside Lumi, clear of the tile grid at the bottom —
+    // wherever he was wandering when the interlude triggered, he needs to
+    // stay visible for the whole mini-game (issue #34).
+    const returnX = this.playerX;
+    const returnY = this.playerY;
+    await this.moveThomasTo(SIMON_THOMAS_X, SIMON_THOMAS_Y, 450);
+
     // Pick 2 random commands from the active batch
     const shuffled = [...ACTIVE_COMMANDS].sort(() => Math.random() - 0.5);
     const picks = shuffled.slice(0, 2);
@@ -1119,6 +1118,24 @@ export class MainScene extends Phaser.Scene {
 
     this.hideSpeechBubble();
     this.hideSimonTiles();
+    await this.moveThomasTo(returnX, returnY, 450);
+  }
+
+  private moveThomasTo(x: number, y: number, duration: number): Promise<void> {
+    return new Promise(resolve => {
+      this.tweens.add({
+        targets: this.playerImg,
+        x, y,
+        duration,
+        ease: 'Quad.inOut',
+        onUpdate: () => {
+          this.playerX = this.playerImg.x;
+          this.playerY = this.playerImg.y;
+          this.playerShadow.setPosition(this.playerImg.x, this.playerImg.y + 65);
+        },
+        onComplete: () => resolve(),
+      });
+    });
   }
 
   private async runSimonCommand(cmd: CommandWord): Promise<void> {

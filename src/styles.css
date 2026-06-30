@@ -235,9 +235,15 @@ body {
   #joystick-hint { display: block; }
 }
 
-/* Stick is positioned via JS (position:fixed, left/top set at touch-start) */
+/* Stick is pinned to the same fixed corner as the hint ring (not the touch
+   point) — a floating widget used to land wherever a drag started, which was
+   often right on top of Thomas and hid him for the whole drag (#20). The
+   drag math itself is unchanged; only the visual circle's position is fixed. */
 #touch-stick {
   display: none;          /* shown by JS on first touch */
+  position: absolute;
+  left: max(24px, env(safe-area-inset-left));
+  bottom: max(24px, env(safe-area-inset-bottom));
   width: clamp(110px, 30vw, 150px);
   aspect-ratio: 1;
   border-radius: 50%;
@@ -484,8 +490,15 @@ body {
   align-items: center;
   justify-content: flex-end;
   padding-bottom: 24px;
-  /* Transparent at top so Thomas stays visible; darkens only near the buttons */
-  background: linear-gradient(to bottom, transparent 38%, rgba(0, 0, 0, 0.48) 68%);
+  /* Dark zone is pixel-anchored to the tile panel height (~320px), not a
+     viewport %, so it stays clear of Thomas/Lumi regardless of how the
+     800x600 canvas letterboxes inside the actual screen. */
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(100% - 320px),
+    rgba(0, 0, 0, 0.48) calc(100% - 220px)
+  );
   z-index: 50;
   pointer-events: all;
 }
