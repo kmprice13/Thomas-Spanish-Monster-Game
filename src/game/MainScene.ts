@@ -1158,7 +1158,14 @@ export class MainScene extends Phaser.Scene {
     prompt.textContent = target.es;
     overlay.classList.remove('hidden');
 
-    ACTIVE_COMMANDS.forEach((cmd, i) => {
+    // 4 tiles max — target + 3 random distractors from active commands
+    const distractors = [...ACTIVE_COMMANDS]
+      .filter(c => c.id !== target.id)
+      .sort(() => Math.random() - 0.5)
+      .slice(0, 3);
+    const choices = [...distractors, target].sort(() => Math.random() - 0.5);
+
+    choices.forEach((cmd, i) => {
       const tile  = document.getElementById(`simon-tile-${i}`)!;
       const icon  = tile.querySelector('.simon-tile__icon')!;
       const label = tile.querySelector('.simon-tile__label')!;
