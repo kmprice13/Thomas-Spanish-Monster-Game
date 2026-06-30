@@ -71,6 +71,14 @@
   "carrying-mariposa",
   "carrying-seta",
   "carrying-hueso",
+  "simon-sientate",
+  "simon-levantate",
+  "simon-escucha",
+  "simon-mira",
+  "simon-escribe",
+  "simon-dibuja",
+  "simon-camina",
+  "simon-para",
   "praise-0",
   "praise-1",
   "praise-2",
@@ -83,5 +91,6 @@
   "lumi-hello",
   "lumi-ready",
   "new-word",
-  "new-friend"
+  "new-friend",
+  "new-chispa"
 ]

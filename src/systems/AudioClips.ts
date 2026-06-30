@@ -1,7 +1,7 @@
 /**
  * AudioClips — file-first Spanish audio player.
  *
- * Loads the manifest of pre-generated M4A clips (Paulina es_MX voice) and
+ * Loads the manifest of pre-generated MP3 clips (ElevenLabs es-MX kid voice) and
  * plays them via HTMLAudioElement. Falls back to the SpanishVoice TTS wrapper
  * for any clip not yet generated (e.g. dynamic counting sentences).
  *
@@ -56,7 +56,7 @@ export class AudioClips {
     return new Promise((resolve) => {
       let el = this.elements.get(id);
       if (!el) {
-        el = new Audio(`/audio/${id}.m4a`);
+        el = new Audio(`/audio/${id}.mp3`);
         this.elements.set(id, el);
       }
       el.currentTime = 0;
