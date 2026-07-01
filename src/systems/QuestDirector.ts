@@ -213,13 +213,15 @@ export class QuestDirector {
       return this.shuffle([target, ...rest]);
     }
 
+    // All target copies must survive the final trim — only distractors get cut.
     const targetCopies = q.kind === 'count' ? q.count : 1;
     for (let i = 0; i < targetCopies; i++) specs.push({ vocab: q.target });
 
     const distractorCount = Math.max(2, maxObjects - targetCopies);
-    for (const v of this.distractors(q.target, distractorCount)) specs.push({ vocab: v });
+    const distractorSpecs = this.distractors(q.target, distractorCount).map((v) => ({ vocab: v }));
+    const rest = this.shuffle(distractorSpecs).slice(0, Math.max(0, maxObjects - targetCopies));
 
-    return this.shuffle(specs).slice(0, maxObjects);
+    return this.shuffle([...specs, ...rest]);
   }
 
   private distractors(exclude: VocabItem, n: number): VocabItem[] {
