@@ -57,7 +57,7 @@ export interface NextEvent {
   levelUp: boolean;
 }
 
-const INITIAL_ACTIVE = 4;
+export const INITIAL_ACTIVE = 4;
 const COLORABLE: ReadonlySet<ModelKey> = new Set(['ball', 'gem', 'flower', 'star', 'butterfly']);
 
 type Rng = () => number;
@@ -71,11 +71,26 @@ export class QuestDirector {
   private current!: Quest;
   private collectedCreatures = new Set<string>();
 
-  constructor(opts: { npcName?: string; rng?: Rng; alreadyCollected?: readonly string[] } = {}) {
-    this.npcName = opts.npcName ?? 'Lumi';
+  constructor(opts: {
+    npcName?: string;
+    rng?: Rng;
+    alreadyCollected?: readonly string[];
+    initialProgress?: { nextUnlockIndex: number; completed: number };
+  } = {}) {
+    this.npcName = opts.npcName ?? 'Nube';
     this.rng = opts.rng ?? Math.random;
-    this.active = MEADOW_VOCAB.slice(0, INITIAL_ACTIVE);
+    this.nextUnlockIndex = Math.min(
+      Math.max(opts.initialProgress?.nextUnlockIndex ?? INITIAL_ACTIVE, INITIAL_ACTIVE),
+      MEADOW_VOCAB.length,
+    );
+    this.completed = Math.max(0, opts.initialProgress?.completed ?? 0);
+    this.active = MEADOW_VOCAB.slice(0, this.nextUnlockIndex);
     for (const id of opts.alreadyCollected ?? []) this.collectedCreatures.add(id);
+  }
+
+  /** Snapshot of unlock progress, for persistence. */
+  get progressSnapshot(): { nextUnlockIndex: number; completed: number } {
+    return { nextUnlockIndex: this.nextUnlockIndex, completed: this.completed };
   }
 
   get quest(): Quest {

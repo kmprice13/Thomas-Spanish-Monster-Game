@@ -88,7 +88,7 @@ const NUDGE = [
   'Inténtalo.',
 ];
 
-// Classroom commands for Lumi Says — mirrors src/content/commands.ts
+// Classroom commands for Nube Says — mirrors src/content/commands.ts
 const COMMANDS = [
   { id: 'sientate',  es: 'Siéntate'  },
   { id: 'levantate', es: 'Levántate' },
@@ -105,14 +105,14 @@ const PHRASES = [
   ...VOCAB.map(v => ({ id: `intro-${v.id}`,    text: `¡Mira! ¡${v.article} ${v.word}!` })),
   ...VOCAB.map(v => ({ id: `find-${v.id}`,     text: `Busca ${v.article} ${v.word}.` })),
   ...VOCAB.map(v => ({ id: `touch-${v.id}`,    text: `Toca ${v.article} ${v.word}.` })),
-  ...VOCAB.map(v => ({ id: `give-${v.id}`,     text: `Dale ${v.article} ${v.word} a Lumi.` })),
-  ...VOCAB.map(v => ({ id: `carrying-${v.id}`, text: `¡Sí! Dale ${v.article} ${v.word} a Lumi.` })),
+  ...VOCAB.map(v => ({ id: `give-${v.id}`,     text: `Dale ${v.article} ${v.word} a Nube.` })),
+  ...VOCAB.map(v => ({ id: `carrying-${v.id}`, text: `¡Sí! Dale ${v.article} ${v.word} a Nube.` })),
   ...COMMANDS.map(c => ({ id: `simon-${c.id}`, text: c.es })),
   ...PRAISE.map((text, i) => ({ id: `praise-${i}`, text })),
   ...NUDGE.map((text,  i) => ({ id: `nudge-${i}`,  text })),
-  { id: 'lumi-hello',  text: '¡Hola! Soy Lumi.' },
-  { id: 'lumi-ready',  text: '¿Listo? ¡Vamos!' },
-  { id: 'lumi-dice',   text: '¡Lumi dice!' },
+  { id: 'nube-hello',  text: '¡Hola! Soy Nube.' },
+  { id: 'nube-ready',  text: '¿Listo? ¡Vamos!' },
+  { id: 'nube-dice',   text: '¡Nube dice!' },
   { id: 'new-word',    text: '¡Nueva palabra!' },
   { id: 'new-friend',  text: '¡Nuevo amigo!' },
   { id: 'new-chispa',  text: '¡Nueva Chispa!' },

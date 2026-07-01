@@ -17,9 +17,9 @@ function ellipsePoints(
   return pts;
 }
 
-export function drawCharacter(g: Phaser.GameObjects.Graphics, who: 'thomas' | 'lumi'): void {
+export function drawCharacter(g: Phaser.GameObjects.Graphics, who: 'thomas' | 'nube'): void {
   if (who === 'thomas') drawThomas(g);
-  else drawLumi(g);
+  else drawNube(g);
 }
 
 // ── Shared eye helper ─────────────────────────────────────────────────────────
@@ -138,8 +138,8 @@ function drawThomas(g: Phaser.GameObjects.Graphics): void {
   g.strokeCircle(18, 28, 11);
 }
 
-// ── Lumi ──────────────────────────────────────────────────────────────────────
-function drawLumi(g: Phaser.GameObjects.Graphics): void {
+// ── Nube ──────────────────────────────────────────────────────────────────────
+function drawNube(g: Phaser.GameObjects.Graphics): void {
   const BODY   = 0x2ec5c1;
   const BELLY  = 0xfff9e8;
   const ACCENT = 0xffd23f;

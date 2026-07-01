@@ -37,7 +37,7 @@ export function touchLine(item: VocabItem): SpokenLine {
   return { text: `Toca ${item.say}.` };
 }
 
-/** "Dale la manzana a Lumi." — introduces the preposition "a". */
+/** "Dale la manzana a Nube." — introduces the preposition "a". */
 export function giveLine(item: VocabItem, npcName: string): SpokenLine {
   return { text: `Dale ${item.say} a ${npcName}.` };
 }
@@ -57,7 +57,7 @@ export function colorLine(item: VocabItem, color: ColorWord): SpokenLine {
   return { text: `Busca ${item.say} ${adj}.` };
 }
 
-/** Lumi's warm, varied praise. Kept short so it never delays the next action. */
+/** Nube's warm, varied praise. Kept short so it never delays the next action. */
 export const PRAISE_LINES = [
   '¡Sí! ¡Muy bien!',
   '¡Perfecto!',

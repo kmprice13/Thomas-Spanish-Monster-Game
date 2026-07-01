@@ -16,6 +16,7 @@
  * Supabase sync can be layered on top later without changing this API.
  */
 import { MEADOW_VOCAB, vocabById } from '../content/vocabulary';
+import { INITIAL_ACTIVE } from './QuestDirector';
 
 const STORAGE_KEY = 'ismg-progress-v2';
 const DEFAULT_EASE = 2.5;
@@ -52,13 +53,19 @@ interface Attempt {
 /** Everything we track per vocabulary item. */
 export interface WordRecord {
   vocabId: string;
-  introduced: boolean;   // has Lumi done the intro sequence?
+  introduced: boolean;   // has Nube done the intro sequence?
   exposures: number;     // times shown via intro
   srs: SRSState;
   attempts: Attempt[];
   correctCount: number;
   totalAttempts: number;
   confusionWith: Record<string, number>; // vocabId → wrong-pick count
+}
+
+/** How far the child has progressed through the vocab unlock ladder. */
+export interface QuestProgress {
+  nextUnlockIndex: number; // index into MEADOW_VOCAB of the next word to unlock
+  completed: number;       // total quests completed
 }
 
 export interface ProgressData {
@@ -69,6 +76,7 @@ export interface ProgressData {
   unlockedColors: string[]; // earned color ids beyond the 4 free ones
   coins: number;
   settings: GameSettings;
+  questProgress: QuestProgress;
 }
 
 // ── SM-2 ────────────────────────────────────────────────────────────────────
@@ -153,6 +161,7 @@ function defaultData(): ProgressData {
     unlockedColors: [],
     coins: 0,
     settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColorId: 'azul' },
+    questProgress: { nextUnlockIndex: INITIAL_ACTIVE, completed: 0 },
   };
 }
 
@@ -179,6 +188,7 @@ export class ProgressStore {
         unlockedColors: p.unlockedColors ?? [],
         coins: p.coins ?? 0,
         settings: { ...defaultData().settings, ...(p.settings ?? {}) },
+        questProgress: { ...defaultData().questProgress, ...(p.questProgress ?? {}) },
       };
     } catch {
       return defaultData();
@@ -235,6 +245,15 @@ export class ProgressStore {
     return true;
   }
 
+  // ── Quest / vocab-unlock progression ──
+
+  get questProgress(): QuestProgress { return this.data.questProgress; }
+
+  setQuestProgress(progress: QuestProgress): void {
+    this.data.questProgress = progress;
+    this.scheduleSave();
+  }
+
   // ── Session ──
 
   addSeconds(dt: number): void {
@@ -244,7 +263,7 @@ export class ProgressStore {
 
   // ── Intro / exposure ──
 
-  /** Returns true if this word has NOT yet had Lumi's intro. */
+  /** Returns true if this word has NOT yet had Nube's intro. */
   needsIntro(vocabId: string): boolean {
     return !this.word(vocabId).introduced;
   }
@@ -352,7 +371,7 @@ export class ProgressStore {
     // Plain-language recommendation
     let recommendation = 'Keep exploring — every quest builds new words naturally.';
     if (struggling.length) {
-      recommendation = `Lumi will replay "${struggling[0].v.es}" more often — it's still settling in.`;
+      recommendation = `Nube will replay "${struggling[0].v.es}" more often — it's still settling in.`;
     } else if (confusionPairs.length) {
       const p = confusionPairs[0];
       recommendation = `Thomas sometimes mixes up "${p.wordA}" and "${p.wordB}" — the game is separating these.`;

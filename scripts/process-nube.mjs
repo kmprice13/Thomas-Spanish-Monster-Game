@@ -1,4 +1,4 @@
-// Flood-fill white background → transparent for Lumi sprites
+// Flood-fill white background → transparent for Nube sprites
 import { readFileSync, writeFileSync } from 'fs';
 import { PNG } from 'pngjs';
 
@@ -33,5 +33,5 @@ function removeBackground(src, dest) {
   console.log(`Done → ${dest} (${width}×${height})`);
 }
 
-removeBackground('scripts/lumi_raw.png',          'public/assets/lumi_base.png');
-removeBackground('scripts/lumi_portrait_raw.png',  'public/assets/lumi_portrait.png');
+removeBackground('scripts/nube_raw.png',          'public/assets/nube_base.png');
+removeBackground('scripts/nube_portrait_raw.png',  'public/assets/nube_portrait.png');

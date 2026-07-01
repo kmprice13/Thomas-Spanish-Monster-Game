@@ -45,15 +45,15 @@ const ISLAND_CX      = 400;
 const ISLAND_CY      = 375;   // shifted down 65px to sit in ocean (not sky)
 const PLAY_SA        = 205;   // play area ellipse semi-axis X
 const PLAY_SB        = 130;   // play area ellipse semi-axis Y
-const LUMI_X         = 400;
-const LUMI_Y         = 240;   // ISLAND_CY - 135
+const NUBE_X         = 400;
+const NUBE_Y         = 240;   // ISLAND_CY - 135
 const PLAYER_START_X = 400;
 const PLAYER_START_Y = 360;   // ISLAND_CY - 15
-const SIMON_THOMAS_X = 540;   // Lumi Says "stage" spot — clear of the tile grid at the bottom
+const SIMON_THOMAS_X = 540;   // Nube Says "stage" spot — clear of the tile grid at the bottom
 const SIMON_THOMAS_Y = 235;
 const PLAYER_SPEED   = 160;   // px/s
 const COLLECT_RADIUS = 38;    // px proximity to collect
-const DELIVERY_RADIUS = 48;   // px proximity to Lumi for give quests
+const DELIVERY_RADIUS = 48;   // px proximity to Nube for give quests
 // Natural scatter positions — offset by +65 from original to match ISLAND_CY=375
 // Four positions form a semicircle (rx=185, ry=75) centred at (400,383):
 // top-left (180°), lower-left (240°), lower-right (300°), top-right (360°)
@@ -92,13 +92,13 @@ export class MainScene extends Phaser.Scene {
   private ui!: GameUI;
 
   // ── Scene objects ─────────────────────────────────────────────────────────
-  private lumiContainer!: Phaser.GameObjects.Container;
+  private nubeContainer!: Phaser.GameObjects.Container;
   private speechBubbleGfx!: Phaser.GameObjects.Graphics;
   private speechBubbleText!: Phaser.GameObjects.Text;
   private worldObjects: WorldObj[] = [];
   private carryIcon!: Phaser.GameObjects.Image;   // item floating above Thomas while carrying
-  private lumiPulseRing!: Phaser.GameObjects.Graphics; // pulsing ring under Lumi during give quest
-  private deliveryArrow!: Phaser.GameObjects.Graphics; // bouncing directional arrow → Lumi during carry
+  private nubePulseRing!: Phaser.GameObjects.Graphics; // pulsing ring under Nube during give quest
+  private deliveryArrow!: Phaser.GameObjects.Graphics; // bouncing directional arrow → Nube during carry
   private playerImg!: Phaser.GameObjects.Image;
   private playerNatScaleX = 1; // natural scaleX set by setDisplaySize(120,130) — captured once
   private playerNatScaleY = 1;
@@ -175,9 +175,9 @@ export class MainScene extends Phaser.Scene {
     MEADOW_VOCAB.forEach(v => this.load.image(`chispa_${v.id}`, `assets/chispa_${v.id}.png`));
     // Thomas — one hand-crafted skin per choice (free + all earned)
     MainScene.ALL_SKIN_IDS.forEach(id => this.load.image(`thomas_${id}`, `assets/thomas_${id}.png`));
-    // Lumi — colored NPC sprite + portrait for start screen
-    this.load.image('lumi', 'assets/lumi_base.png');
-    this.load.image('lumi-portrait', 'assets/lumi_portrait.png');
+    // Nube — colored NPC sprite + portrait for start screen
+    this.load.image('nube', 'assets/nube_base.png');
+    this.load.image('nube-portrait', 'assets/nube_portrait.png');
     // Island growth decorations (processed by scripts/process-island-elements.mjs)
     ISLAND_MILESTONES.forEach(m => this.load.image(m.key, `assets/${m.key}.png`));
   }
@@ -189,8 +189,9 @@ export class MainScene extends Phaser.Scene {
     this.clips    = new AudioClips(this.voice);
     this.progress = new ProgressStore();
     this.questDir = new QuestDirector({
-      npcName: 'Lumi',
+      npcName: 'Nube',
       alreadyCollected: this.progress.creatures,
+      initialProgress: this.progress.questProgress,
     });
 
     this.ui = new GameUI({
@@ -313,16 +314,16 @@ export class MainScene extends Phaser.Scene {
       });
     });
 
-    // ── Lumi (NPC) ────────────────────────────────────────────────────────
-    const lumiShadow = this.add.graphics();
-    lumiShadow.fillStyle(0x000000, 0.15);
-    lumiShadow.fillEllipse(0, 62, 80, 18);
-    this.textures.get('lumi').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    const lumiImg = this.add.image(0, 0, 'lumi').setScale(130 / 1024);
-    this.lumiContainer = this.add.container(LUMI_X, LUMI_Y, [lumiShadow, lumiImg]);
-    this.lumiContainer.setDepth(10);
+    // ── Nube (NPC) ────────────────────────────────────────────────────────
+    const nubeShadow = this.add.graphics();
+    nubeShadow.fillStyle(0x000000, 0.15);
+    nubeShadow.fillEllipse(0, 62, 80, 18);
+    this.textures.get('nube').setFilter(Phaser.Textures.FilterMode.NEAREST);
+    const nubeImg = this.add.image(0, 0, 'nube').setScale(130 / 1024);
+    this.nubeContainer = this.add.container(NUBE_X, NUBE_Y, [nubeShadow, nubeImg]);
+    this.nubeContainer.setDepth(10);
 
-    // Speech bubble (child of lumiContainer — bobs with Lumi)
+    // Speech bubble (child of nubeContainer — bobs with Nube)
     this.speechBubbleGfx = this.add.graphics();
     this.speechBubbleText = this.add.text(0, -98, '', {
       fontSize: '22px',
@@ -330,7 +331,7 @@ export class MainScene extends Phaser.Scene {
       color: '#5a3200',
       fontStyle: 'bold',
     }).setOrigin(0.5, 0.5);
-    this.lumiContainer.add([this.speechBubbleGfx, this.speechBubbleText]);
+    this.nubeContainer.add([this.speechBubbleGfx, this.speechBubbleText]);
     this.speechBubbleGfx.setVisible(false);
     this.speechBubbleText.setVisible(false);
 
@@ -356,9 +357,9 @@ export class MainScene extends Phaser.Scene {
     this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab_apple')
       .setDisplaySize(44, 39).setDepth(23).setVisible(false);
 
-    // Pulse ring under Lumi — visible during give quest carry phase
-    this.lumiPulseRing = this.add.graphics().setDepth(9);
-    this.lumiPulseRing.setVisible(false);
+    // Pulse ring under Nube — visible during give quest carry phase
+    this.nubePulseRing = this.add.graphics().setDepth(9);
+    this.nubePulseRing.setVisible(false);
     this.deliveryArrow = this.add.graphics().setDepth(24).setVisible(false);
 
     // ── Foreground grass tufts + flowers (depth 20 — in front of chars) ───
@@ -494,18 +495,18 @@ export class MainScene extends Phaser.Scene {
     const dt = delta / 1000;
     this.elapsed += dt;
 
-    // Lumi idle bob — more eager during give quest carry phase (#12)
-    let lumiEager = false;
+    // Nube idle bob — more eager during give quest carry phase (#12)
+    let nubeEager = false;
     if (this.phase !== 'start') {
       const q = this.questDir.quest;
-      if (q && q.kind === 'give') lumiEager = q.carrying;
+      if (q && q.kind === 'give') nubeEager = q.carrying;
     }
-    this.lumiContainer.y = LUMI_Y + Math.sin(this.elapsed * (lumiEager ? 2.8 : 1.4)) * (lumiEager ? 5 : 3);
+    this.nubeContainer.y = NUBE_Y + Math.sin(this.elapsed * (nubeEager ? 2.8 : 1.4)) * (nubeEager ? 5 : 3);
     if (this.npcBounceTimer > 0) {
       this.npcBounceTimer = Math.max(0, this.npcBounceTimer - dt);
-      this.lumiContainer.scaleY = 1 + Math.sin(this.npcBounceTimer * 18) * 0.08 * this.npcBounceTimer;
+      this.nubeContainer.scaleY = 1 + Math.sin(this.npcBounceTimer * 18) * 0.08 * this.npcBounceTimer;
     } else {
-      this.lumiContainer.scaleY = 1;
+      this.nubeContainer.scaleY = 1;
     }
 
     if (this.phase === 'start') return;
@@ -572,27 +573,27 @@ export class MainScene extends Phaser.Scene {
       // Give-quest delivery + carry indicator
       const isCarrying = this.questDir.quest.kind === 'give' && this.questDir.quest.carrying;
       if (isCarrying) {
-        const dx = this.playerX - LUMI_X;
-        const dy = this.playerY - LUMI_Y;
+        const dx = this.playerX - NUBE_X;
+        const dy = this.playerY - NUBE_Y;
         if (Math.sqrt(dx * dx + dy * dy) < DELIVERY_RADIUS) this.onDelivery();
       }
-      // Keep carry icon above Thomas and pulse ring under Lumi in sync
+      // Keep carry icon above Thomas and pulse ring under Nube in sync
       this.carryIcon.setVisible(isCarrying);
       if (isCarrying) {
         this.carryIcon.setPosition(this.playerX, this.playerY - 88 + Math.sin(this.elapsed * 4) * 4);
       }
-      this.lumiPulseRing.setVisible(isCarrying);
+      this.nubePulseRing.setVisible(isCarrying);
       if (isCarrying) {
-        this.lumiPulseRing.clear();
+        this.nubePulseRing.clear();
         const pulse = 0.55 + Math.sin(this.elapsed * 5) * 0.35;
-        this.lumiPulseRing.lineStyle(4, 0xffe66d, pulse);
-        this.lumiPulseRing.strokeCircle(LUMI_X, LUMI_Y + 20, 52);
+        this.nubePulseRing.lineStyle(4, 0xffe66d, pulse);
+        this.nubePulseRing.strokeCircle(NUBE_X, NUBE_Y + 20, 52);
       }
-      // Directional arrow above the carry icon → points toward Lumi with a bouncing nudge (#12)
+      // Directional arrow above the carry icon → points toward Nube with a bouncing nudge (#12)
       this.deliveryArrow.setVisible(isCarrying);
       if (isCarrying) {
-        const dx = LUMI_X - this.playerX;
-        const dy = LUMI_Y - this.playerY;
+        const dx = NUBE_X - this.playerX;
+        const dy = NUBE_Y - this.playerY;
         const angle = Math.atan2(dy, dx);
         const bounce = Math.sin(this.elapsed * 6) * 3;
         const ax = this.playerX + Math.cos(angle) * bounce;
@@ -663,10 +664,10 @@ export class MainScene extends Phaser.Scene {
     this.ui.setPalCount(this.progress.creatures.length);
     this.ui.updatePalBook(this.progress.creatures, MEADOW_VOCAB);
 
-    this.showSpeechBubble('¡Hola! Soy Lumi.');
-    await this.clips.speakAsync('lumi-hello', '¡Hola! Soy Lumi.');
+    this.showSpeechBubble('¡Hola! Soy Nube.');
+    await this.clips.speakAsync('nube-hello', '¡Hola! Soy Nube.');
     this.showSpeechBubble('¿Listo? ¡Vamos!');
-    await this.clips.speakAsync('lumi-ready', '¿Listo? ¡Vamos!');
+    await this.clips.speakAsync('nube-ready', '¿Listo? ¡Vamos!');
     this.hideSpeechBubble();
 
     const quest = this.questDir.start();
@@ -851,7 +852,7 @@ export class MainScene extends Phaser.Scene {
 
     if (result.outcome === 'pickup') {
       this.carryIcon.setTexture(ITEM_KEY[wo.vocab.model]);
-      this.clips.speak(`carrying-${wo.vocab.id}`, `¡Sí! Dale ${wo.vocab.say} a Lumi.`);
+      this.clips.speak(`carrying-${wo.vocab.id}`, `¡Sí! Dale ${wo.vocab.say} a Nube.`);
       return;
     }
     if (result.questComplete) this.onQuestComplete();
@@ -860,9 +861,9 @@ export class MainScene extends Phaser.Scene {
   private onDelivery(): void {
     if (this.phase !== 'playing' || !this.questDir.deliver()) return;
     this.carryIcon.setVisible(false);
-    this.lumiPulseRing.setVisible(false);
+    this.nubePulseRing.setVisible(false);
     this.sfx.play('correct');
-    this.burstConfetti(LUMI_X, LUMI_Y);
+    this.burstConfetti(NUBE_X, NUBE_Y);
     this.onQuestComplete();
   }
 
@@ -930,13 +931,14 @@ export class MainScene extends Phaser.Scene {
     try {
       this.clips.cancel();
 
-      // Every 4 vocab quests, run a Lumi Says interlude (2 commands)
+      // Every 4 vocab quests, run a Nube Says interlude (2 commands)
       this.simonCounter++;
       if (this.simonCounter % 4 === 0) {
         await this.runSimonInterlude();
       }
 
       const { quest, event } = this.questDir.next();
+      this.progress.setQuestProgress(this.questDir.progressSnapshot);
 
       if (event.unlockedWord) {
         this.ui.showToast(ICONS.sparkle, `Nueva palabra: ${event.unlockedWord.es}!`);
@@ -1115,13 +1117,13 @@ export class MainScene extends Phaser.Scene {
     });
   }
 
-  // ── Lumi Says (Simon) ─────────────────────────────────────────────────────
+  // ── Nube Says (Simon) ─────────────────────────────────────────────────────
 
   private async runSimonInterlude(): Promise<void> {
     this.phase = 'simon';
     this.hideSpeechBubble();
 
-    // Move Thomas up beside Lumi, clear of the tile grid at the bottom —
+    // Move Thomas up beside Nube, clear of the tile grid at the bottom —
     // wherever he was wandering when the interlude triggered, he needs to
     // stay visible for the whole mini-game (issue #34).
     const returnX = this.playerX;
@@ -1132,9 +1134,9 @@ export class MainScene extends Phaser.Scene {
     const shuffled = [...ACTIVE_COMMANDS].sort(() => Math.random() - 0.5);
     const picks = shuffled.slice(0, 2);
 
-    this.showSpeechBubble('¡Lumi dice!');
+    this.showSpeechBubble('¡Nube dice!');
     this.sfx.play('tap');
-    await this.clips.speakAsync('lumi-dice', '¡Lumi dice!');
+    await this.clips.speakAsync('nube-dice', '¡Nube dice!');
     await delay(300);
 
     for (const cmd of picks) {
@@ -1165,14 +1167,14 @@ export class MainScene extends Phaser.Scene {
   }
 
   private async runSimonCommand(cmd: CommandWord): Promise<void> {
-    // 1. Lumi announces the command
+    // 1. Nube announces the command
     this.showSpeechBubble(cmd.es);
     this.sfx.play('tap');
     this.npcBounceTimer = 0.6;
     await this.clips.speakAsync(`simon-${cmd.id}`, cmd.es);
 
-    // 2. Lumi models the action
-    this.performAction('lumi', cmd.action);
+    // 2. Nube models the action
+    this.performAction('nube', cmd.action);
     await delay(1200);
 
     // 3. Show tiles — wait for correct tap
@@ -1229,7 +1231,7 @@ export class MainScene extends Phaser.Scene {
       tile.classList.add('wrong');
       setTimeout(() => tile.classList.remove('wrong'), 380);
       this.sfx.play('wrong');
-      this.performAction('lumi', this.simonTarget!);
+      this.performAction('nube', this.simonTarget!);
     }
   }
 
@@ -1248,13 +1250,13 @@ export class MainScene extends Phaser.Scene {
     this.simonResolve = null;
   }
 
-  private performAction(who: 'lumi' | 'thomas', action: CommandAction): void {
-    const container = who === 'lumi' ? this.lumiContainer : this.playerImg;
-    const baseX = who === 'lumi' ? LUMI_X : this.playerX;
-    const baseY = who === 'lumi' ? LUMI_Y : this.playerY;
-    // Lumi (Container) has natural scale 1.0; Thomas (Image) has setDisplaySize-driven scale
-    const sx = who === 'lumi' ? 1 : this.playerNatScaleX;
-    const sy = who === 'lumi' ? 1 : this.playerNatScaleY;
+  private performAction(who: 'nube' | 'thomas', action: CommandAction): void {
+    const container = who === 'nube' ? this.nubeContainer : this.playerImg;
+    const baseX = who === 'nube' ? NUBE_X : this.playerX;
+    const baseY = who === 'nube' ? NUBE_Y : this.playerY;
+    // Nube (Container) has natural scale 1.0; Thomas (Image) has setDisplaySize-driven scale
+    const sx = who === 'nube' ? 1 : this.playerNatScaleX;
+    const sy = who === 'nube' ? 1 : this.playerNatScaleY;
     this.tweens.killTweensOf(container);
 
     switch (action) {

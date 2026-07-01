@@ -38,10 +38,10 @@ The child hears a Spanish word and interacts with the matching object in the wor
 Wrong guesses get a gentle "Mmm... otra vez" (try again). Never a buzzer, never a red flash, never a score going down. The game reacts with curiosity, not judgment. This is deliberate for ADHD — punishment kills intrinsic motivation.
 
 ### The child must always have a fair chance
-If Thomas doesn't know what *flor* means, he can't be expected to find the flower. Before any word is ever the target of a quest, **Lumi introduces it first**. The child sees and hears the word in context before being asked to act on it. This is the "Option A" mechanic.
+If Thomas doesn't know what *flor* means, he can't be expected to find the flower. Before any word is ever the target of a quest, **Nube introduces it first**. The child sees and hears the word in context before being asked to act on it. This is the "Option A" mechanic.
 
 ### The game grows with him
-Words unlock gradually. New command types (find → touch → give → count → color) introduce new grammar implicitly. Lumi's sentences get slightly more complex over time. Thomas never notices he's learning grammar rules.
+Words unlock gradually. New command types (find → touch → give → count → color) introduce new grammar implicitly. Nube's sentences get slightly more complex over time. Thomas never notices he's learning grammar rules.
 
 ### ADHD-friendly pacing
 - Something new appears every 2 quests (word unlock)
@@ -55,11 +55,11 @@ Words unlock gradually. New command types (find → touch → give → count →
 ## 3. What's Built (Current State)
 
 ### Milestone 1 — Playable Loop ✅
-The core gameplay loop: Lumi speaks Spanish → player walks/taps object → confetti + audio → next quest. 12 meadow vocabulary items. Procedural low-poly 3D models for everything (no external assets needed). Web Speech API for voice. Full parent dashboard gate.
+The core gameplay loop: Nube speaks Spanish → player walks/taps object → confetti + audio → next quest. 12 meadow vocabulary items. Procedural low-poly 3D models for everything (no external assets needed). Web Speech API for voice. Full parent dashboard gate.
 
 ### Milestone 2 — Learning Engine ✅
 - **85 pre-baked M4A audio clips** using macOS Paulina (es_MX) voice — warm, native-quality Spanish, no robotic TTS in the child's experience
-- **Option A intro mechanic** — Lumi introduces every new word before asking Thomas to find it. Teal spotlight ring, NPC faces the target, voice plays "¡Mira! ¡La manzana!", brief pause, then the quest command
+- **Option A intro mechanic** — Nube introduces every new word before asking Thomas to find it. Teal spotlight ring, NPC faces the target, voice plays "¡Mira! ¡La manzana!", brief pause, then the quest command
 - **SM-2 spaced repetition** — every tap is timed; response time is a proxy for confidence; the algorithm schedules each word's next review on the forgetting curve
 - **Confusion pair tracking** — if Thomas repeatedly taps the wrong object for a given word, the game learns which pair confuses him and physically separates them in the scene
 - **Enhanced parent dashboard** — fluent / building / struggling word tiers, confusion pairs, response speed trend, next-review dates per word, plain-language insights
@@ -104,9 +104,9 @@ public/
 **Status:** Locked.
 
 ### Intro mechanic: Option A (Teach Your Monster style)
-**Decision:** Lumi introduces each new word *before* the child is ever asked to find it.
+**Decision:** Nube introduces each new word *before* the child is ever asked to find it.
 **Why over Option B (learn by context/trial):** Thomas needs to feel capable, not confused. Option A guarantees a fair first attempt. We don't want his first experience with a new word to be failing to recognize it.
-**What it looks like:** Lumi bounces → turns to face target → teal spotlight ring pulses on target → "¡Mira! ¡La manzana!" → 600ms pause → quest command plays.
+**What it looks like:** Nube bounces → turns to face target → teal spotlight ring pulses on target → "¡Mira! ¡La manzana!" → 600ms pause → quest command plays.
 **Status:** Implemented.
 
 ### Audio: macOS Paulina voice over Web Speech API
@@ -138,7 +138,7 @@ public/
 ### Art direction: flat-shaded low-poly procedural
 **Decision:** No imported 3D assets. All models built in code using `ModelFactory.ts`.
 **Why:** No 3D API keys were available (credential probe showed Tripo/Gemini/ElevenLabs all MISSING). More importantly, the flat-shaded low-poly style (Animal Crossing × Teach Your Monster) is *correct* for this age group — high contrast, readable shapes, no texture noise to distract.
-**Status:** Implemented. 13 vocab models + player monster (Lumi + Thomas) + eggs.
+**Status:** Implemented. 13 vocab models + player monster (Nube + Thomas) + eggs.
 
 ### No streak mechanic
 **Decision:** Deliberately no streaks, no "days in a row" counter visible to Thomas.
@@ -198,7 +198,7 @@ public/
 - Calm mode (reduced saturation + animation kill switch) is implemented.
 - Slow speech mode is implemented.
 - **Q: Are there other sensory accommodations needed?** Touch controls exist for mobile. Keyboard input isn't implemented.
-- **Q: Should we add subtitles?** Showing the Spanish word on screen when Lumi speaks it would be Captions mode — useful for hearing-impaired kids or noisy environments. This would need a UI decision (does seeing the word change the learning dynamic?).
+- **Q: Should we add subtitles?** Showing the Spanish word on screen when Nube speaks it would be Captions mode — useful for hearing-impaired kids or noisy environments. This would need a UI decision (does seeing the word change the learning dynamic?).
 
 ### Analytics
 - **Q: Do we want any usage data at all?** Currently zero telemetry. We know nothing about session length, which quests are most failed, whether the intro mechanic is working, etc.
@@ -209,7 +209,7 @@ public/
 
 ### Configurability
 - Thomas's name is hardcoded in some comment references. The game itself doesn't display names.
-- **Q: Should this be configurable?** If other families want to use this game, a simple name field in Settings would personalize Lumi's dialogue.
+- **Q: Should this be configurable?** If other families want to use this game, a simple name field in Settings would personalize Nube's dialogue.
 
 ---
 
@@ -224,7 +224,7 @@ start → (play button) → introducing | speaking → playing → celebrating �
 ```
 
 - **start:** Title screen. World animates, NPC idles. No input.
-- **introducing:** Lumi faces target. Spotlight ring pulses. Intro clip plays. Player cannot move.
+- **introducing:** Nube faces target. Spotlight ring pulses. Intro clip plays. Player cannot move.
 - **speaking:** Quest command plays. Player CAN move (ADHD — can't make them sit still).
 - **playing:** Full input. Timer running for response-time measurement.
 - **celebrating:** 1.4s pause after correct. Confetti, praise clip, banner.
@@ -233,15 +233,15 @@ start → (play button) → introducing | speaking → playing → celebrating �
 ### Audio clip naming convention
 ```
 word-{id}       — pronunciation (Pal Book tap)
-intro-{id}      — "¡Mira! ¡La manzana!" (Lumi intro)
+intro-{id}      — "¡Mira! ¡La manzana!" (Nube intro)
 find-{id}       — "Busca la manzana."
 touch-{id}      — "Toca la manzana."
-give-{id}       — "Dale la manzana a Lumi."
-carrying-{id}   — "¡Sí! Dale la manzana a Lumi." (give-quest pickup confirm)
+give-{id}       — "Dale la manzana a Nube."
+carrying-{id}   — "¡Sí! Dale la manzana a Nube." (give-quest pickup confirm)
 praise-0..5     — "¡Sí! ¡Muy bien!" etc.
 nudge-0..2      — "Mmm... otra vez." etc.
-lumi-hello      — "¡Hola! Soy Lumi."
-lumi-ready      — "¿Listo? ¡Vamos!"
+nube-hello      — "¡Hola! Soy Nube."
+nube-ready      — "¿Listo? ¡Vamos!"
 new-word        — "¡Nueva palabra!"
 new-friend      — "¡Nuevo amigo!"
 ```
@@ -291,7 +291,7 @@ __THREE_GAME_DIAGNOSTICS__.player      // {position, speed}
 ## 7. The Learning Engine
 
 ### What gets tracked per word
-- `introduced` — has Lumi done the intro sequence for this word? (boolean, never resets)
+- `introduced` — has Nube done the intro sequence for this word? (boolean, never resets)
 - `exposures` — how many times the intro has played (should be 1 for most words)
 - `correctCount` / `totalAttempts` — raw accuracy
 - `srs.ease` — SM-2 ease factor (starts 2.5, drifts based on performance)

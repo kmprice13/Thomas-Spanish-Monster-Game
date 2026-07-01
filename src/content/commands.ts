@@ -1,5 +1,5 @@
 /**
- * Classroom command vocabulary for the Lumi Says mechanic.
+ * Classroom command vocabulary for the Nube Says mechanic.
  * These are the high-frequency instructions Thomas will hear every day in
  * his dual-language classroom — learning them before school starts is the
  * single highest-leverage preparation we can give him.
@@ -13,7 +13,7 @@ import type { IconName } from './icons';
 
 export interface CommandWord {
   id: string;
-  es: string;          // spoken Spanish command (what Lumi says)
+  es: string;          // spoken Spanish command (what Nube says)
   en: string;          // English gloss (parent dashboard only — never shown to Thomas)
   icon: IconName;       // action tile icon
   action: CommandAction;
