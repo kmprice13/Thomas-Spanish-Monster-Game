@@ -52,6 +52,29 @@ body {
   display: none !important;
 }
 
+#debug-hud {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 9999;
+  margin: 0;
+  padding: 6px 8px;
+  max-width: 70vw;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #4dff88;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  white-space: pre-wrap;
+  pointer-events: none;
+}
+
+#debug-hud.anomaly {
+  color: #ff5c5c;
+  background: rgba(60, 0, 0, 0.8);
+}
+
 /* Phosphor icon host — sized to the current font-size like an emoji glyph
    would be, tinted via `color` (icon SVGs use fill="currentColor"). */
 .icon, [data-icon] {

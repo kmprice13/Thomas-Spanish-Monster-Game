@@ -146,6 +146,13 @@ export class MainScene extends Phaser.Scene {
   private simonTarget: CommandAction | null = null;
   private advancing = false; // re-entrancy guard for advanceQuest()
 
+  // ── Debug HUD (?debug=1) — diagnoses the "Thomas vanishes" bug (#20) ──────
+  private debugEl: HTMLElement | null = null;
+  private debugLog: string[] = [];
+  private debugLastZone: 'sand' | 'grass' | 'ocean' | null = null;
+  private debugLastPhase: Phase | null = null;
+  private debugWasAnomalous = false;
+
   constructor() { super({ key: 'MainScene' }); }
 
   private static readonly ALL_SKIN_IDS = [
@@ -489,11 +496,85 @@ export class MainScene extends Phaser.Scene {
 
     // Place any island decorations already earned from previous sessions
     this.placeIslandDecos(false);
+
+    // ── Debug HUD: add ?debug=1 to the URL to see it ─────────────────────────
+    if (new URLSearchParams(location.search).get('debug') === '1') {
+      this.debugEl = document.getElementById('debug-hud');
+      this.debugEl?.classList.remove('hidden');
+      this.pushDebugLog('debug HUD enabled');
+    }
+  }
+
+  // ── Debug HUD helpers (#20 — Thomas vanishing bug) ────────────────────────
+
+  /** Mirrors drawIsland.ts's terrain classification so we know what Thomas is standing on. */
+  private terrainZoneAt(x: number, y: number): 'sand' | 'grass' | 'ocean' {
+    const SA = 271, SB = 173;
+    const dx = x - ISLAND_CX, dy = y - ISLAND_CY;
+    const sandNorm = Math.sqrt((dx / SA) ** 2 + (dy / SB) ** 2);
+    const angle = Math.atan2(dy / SB, dx / SA);
+    const edgeNoise =
+      Math.sin(angle * 3.0 + 0.80) * 0.072 +
+      Math.sin(angle * 7.0 + 2.10) * 0.042 +
+      Math.sin(angle * 13.0 + 0.50) * 0.026 +
+      Math.sin(angle * 23.0 + 1.70) * 0.013;
+    const outerEdge = 1.0 + edgeNoise;
+    if (sandNorm > outerEdge) return 'ocean';
+    const relNorm = sandNorm / outerEdge;
+    return relNorm > 0.75 ? 'sand' : 'grass';
+  }
+
+  private pushDebugLog(msg: string): void {
+    this.debugLog.unshift(`[${this.elapsed.toFixed(1)}s] ${msg}`);
+    if (this.debugLog.length > 14) this.debugLog.length = 14;
+    console.warn(`[debug] ${msg}`);
+  }
+
+  private updateDebugHud(): void {
+    if (!this.debugEl) return;
+    const img = this.playerImg;
+
+    const zone = this.terrainZoneAt(this.playerX, this.playerY);
+    if (zone !== this.debugLastZone) {
+      this.pushDebugLog(`zone: ${this.debugLastZone ?? '(start)'} -> ${zone}`);
+      this.debugLastZone = zone;
+    }
+    if (this.phase !== this.debugLastPhase) {
+      this.pushDebugLog(`phase: ${this.debugLastPhase ?? '(start)'} -> ${this.phase}`);
+      this.debugLastPhase = this.phase;
+    }
+
+    const anomalous = !img.visible || img.alpha < 0.05
+      || !Number.isFinite(img.x) || !Number.isFinite(img.y)
+      || Math.abs(img.scaleX) < 0.05 || Math.abs(img.scaleY) < 0.05
+      || img.displayWidth < 1 || img.displayHeight < 1
+      || img.texture.key === '__MISSING';
+    if (anomalous && !this.debugWasAnomalous) {
+      this.pushDebugLog(
+        `*** VANISHED *** zone=${zone} visible=${img.visible} alpha=${img.alpha.toFixed(2)} ` +
+        `scaleX=${img.scaleX.toFixed(2)} scaleY=${img.scaleY.toFixed(2)} depth=${img.depth} ` +
+        `displayW=${img.displayWidth.toFixed(1)} displayH=${img.displayHeight.toFixed(1)} ` +
+        `x=${img.x.toFixed(1)} y=${img.y.toFixed(1)} texture=${img.texture.key} phase=${this.phase}`,
+      );
+    }
+    this.debugWasAnomalous = anomalous;
+
+    const live =
+      `phase: ${this.phase}   zone: ${zone}\n` +
+      `x: ${img.x.toFixed(1)}  y: ${img.y.toFixed(1)}\n` +
+      `visible: ${img.visible}  alpha: ${img.alpha.toFixed(2)}\n` +
+      `scaleX: ${img.scaleX.toFixed(2)}  scaleY: ${img.scaleY.toFixed(2)}  depth: ${img.depth}\n` +
+      `displayW: ${img.displayWidth.toFixed(1)}  displayH: ${img.displayHeight.toFixed(1)}\n` +
+      `texture: ${img.texture.key}`;
+
+    this.debugEl.classList.toggle('anomaly', anomalous);
+    this.debugEl.textContent = `${live}\n---\n${this.debugLog.join('\n')}`;
   }
 
   update(_time: number, delta: number): void {
     const dt = delta / 1000;
     this.elapsed += dt;
+    this.updateDebugHud();
 
     // Nube idle bob — more eager during give quest carry phase (#12)
     let nubeEager = false;
