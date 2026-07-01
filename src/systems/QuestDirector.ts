@@ -189,11 +189,13 @@ export class QuestDirector {
 
     if (q.kind === 'color' && q.color) {
       // Same noun in several colors: noun reinforced, color taught.
-      const used = this.shuffle([q.color, ...COLOR_WORDS.filter((c) => c.id !== q.color!.id)]).slice(0, 4);
-      for (const c of used) specs.push({ vocab: q.target, colorId: c.id, colorOverride: c.color });
-      // a couple of other-noun distractors
-      for (const v of this.distractors(q.target, 2)) specs.push({ vocab: v });
-      return this.shuffle(specs).slice(0, maxObjects);
+      // The correct-color target must always survive the final trim.
+      const target: SpawnSpec = { vocab: q.target, colorId: q.color.id, colorOverride: q.color.color };
+      const otherColors = COLOR_WORDS.filter((c) => c.id !== q.color!.id)
+        .map((c) => ({ vocab: q.target, colorId: c.id, colorOverride: c.color }));
+      const distractorSpecs = this.distractors(q.target, 2).map((v) => ({ vocab: v }));
+      const rest = this.shuffle([...otherColors, ...distractorSpecs]).slice(0, maxObjects - 1);
+      return this.shuffle([target, ...rest]);
     }
 
     const targetCopies = q.kind === 'count' ? q.count : 1;
