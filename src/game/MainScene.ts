@@ -617,8 +617,8 @@ export class MainScene extends Phaser.Scene {
       const d2  = (edx / PLAY_SA) ** 2 + (edy / PLAY_SB) ** 2;
       if (d2 > 1) {
         const d = Math.sqrt(d2);
-        this.playerX = ISLAND_CX + (edx / d) * PLAY_SA;
-        this.playerY = ISLAND_CY + (edy / d) * PLAY_SB;
+        this.playerX = ISLAND_CX + edx / d;
+        this.playerY = ISLAND_CY + edy / d;
         // Remove the outward velocity component so Thomas doesn't stick/jitter at the wall
         const nx = (edx / d) / PLAY_SA;
         const ny = (edy / d) / PLAY_SB;
