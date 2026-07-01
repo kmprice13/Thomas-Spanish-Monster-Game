@@ -18,7 +18,11 @@
 import { MEADOW_VOCAB, vocabById } from '../content/vocabulary';
 import { INITIAL_ACTIVE } from './QuestDirector';
 
-const STORAGE_KEY = 'ismg-progress-v2';
+// `?test=1` in the URL uses a separate save slot, so testing never touches
+// or resets the real player's progress.
+const STORAGE_KEY = new URLSearchParams(location.search).get('test') === '1'
+  ? 'ismg-progress-v2-test'
+  : 'ismg-progress-v2';
 const DEFAULT_EASE = 2.5;
 const MIN_EASE = 1.3;
 const DAY_MS = 86_400_000;
