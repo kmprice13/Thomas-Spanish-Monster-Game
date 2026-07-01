@@ -365,7 +365,7 @@ body {
   box-shadow: 6px 8px 0 var(--border);
 }
 
-.start-lumi {
+.start-nube {
   width: 140px;
   height: auto;
   animation: bob 2.2s ease-in-out infinite;
@@ -504,7 +504,7 @@ body {
   color: #aaa;
 }
 
-/* ====================== Lumi Says overlay ====================== */
+/* ====================== Nube Says overlay ====================== */
 #simon-overlay {
   position: absolute;
   inset: 0;
@@ -514,7 +514,7 @@ body {
   justify-content: flex-end;
   padding-bottom: 24px;
   /* Dark zone is pixel-anchored to the tile panel height (~320px), not a
-     viewport %, so it stays clear of Thomas/Lumi regardless of how the
+     viewport %, so it stays clear of Thomas/Nube regardless of how the
      800x600 canvas letterboxes inside the actual screen. */
   background: linear-gradient(
     to bottom,
@@ -984,7 +984,7 @@ body {
 }
 
 /* ====================== Calm mode ====================== */
-body.calm .start-lumi,
+body.calm .start-nube,
 body.calm #banner.show,
 body.calm #toast.show,
 body.calm #quest-card.speaking .replay-wave {
