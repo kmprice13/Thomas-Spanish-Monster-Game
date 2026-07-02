@@ -15,7 +15,7 @@
  * All data is localStorage — offline, private, no backend needed.
  * Supabase sync can be layered on top later without changing this API.
  */
-import { MEADOW_VOCAB, vocabById } from '../content/vocabulary';
+import { MEADOW_VOCAB, UNLOCK_ORDER, vocabById } from '../content/vocabulary';
 import { INITIAL_ACTIVE } from './QuestDirector';
 
 // `?test=1` in the URL uses a separate save slot, so testing never touches
@@ -36,6 +36,7 @@ export interface GameSettings {
   muted: boolean;
   slowSpeech: boolean;
   playerColorId: string; // skin id, e.g. 'azul', 'pirata', 'arcoiris'
+  micDenied: boolean; // mic permission was denied/unavailable; stop re-prompting
 }
 
 /** Per-word SRS state. */
@@ -164,7 +165,7 @@ function defaultData(): ProgressData {
     creatures: [],
     unlockedColors: [],
     coins: 0,
-    settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColorId: 'azul' },
+    settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColorId: 'azul', micDenied: false },
     questProgress: { nextUnlockIndex: INITIAL_ACTIVE, completed: 0 },
   };
 }
@@ -184,7 +185,7 @@ export class ProgressStore {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (!raw) return defaultData();
       const p = JSON.parse(raw) as Partial<ProgressData>;
-      return {
+      const merged: ProgressData = {
         ...defaultData(),
         ...p,
         words: p.words ?? {},
@@ -194,6 +195,17 @@ export class ProgressStore {
         settings: { ...defaultData().settings, ...(p.settings ?? {}) },
         questProgress: { ...defaultData().questProgress, ...(p.questProgress ?? {}) },
       };
+
+      // Guard against UNLOCK_ORDER (interleaved by category) reshuffling
+      // which words occupy which index vs. the old MEADOW_VOCAB-order saves
+      // were written against — never let an already-introduced word fall
+      // outside the active window.
+      const maxIntroducedIdx = Object.entries(merged.words)
+        .filter(([, w]) => w.introduced)
+        .reduce((max, [id]) => Math.max(max, UNLOCK_ORDER.findIndex((v) => v.id === id)), -1);
+      merged.questProgress.nextUnlockIndex = Math.max(merged.questProgress.nextUnlockIndex, maxIntroducedIdx + 1);
+
+      return merged;
     } catch {
       return defaultData();
     }
@@ -277,6 +289,11 @@ export class ProgressStore {
     w.introduced = true;
     w.exposures += 1;
     this.scheduleSave();
+  }
+
+  /** How many words have had their first-encounter sequence so far. */
+  introducedCount(): number {
+    return Object.values(this.data.words).filter((w) => w.introduced).length;
   }
 
   // ── Attempt recording ──

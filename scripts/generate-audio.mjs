@@ -107,15 +107,17 @@ const PHRASES = [
   ...VOCAB.map(v => ({ id: `touch-${v.id}`,    text: `Toca ${v.article} ${v.word}.` })),
   ...VOCAB.map(v => ({ id: `give-${v.id}`,     text: `Dale ${v.article} ${v.word} a Nube.` })),
   ...VOCAB.map(v => ({ id: `carrying-${v.id}`, text: `¡Sí! Dale ${v.article} ${v.word} a Nube.` })),
+  ...VOCAB.map(v => ({ id: `say-it-${v.id}`,   text: `Ahora dilo tú: ¡${v.article} ${v.word}!` })),
   ...COMMANDS.map(c => ({ id: `simon-${c.id}`, text: c.es })),
   ...PRAISE.map((text, i) => ({ id: `praise-${i}`, text })),
   ...NUDGE.map((text,  i) => ({ id: `nudge-${i}`,  text })),
-  { id: 'nube-hello',  text: '¡Hola! Soy Nube.' },
-  { id: 'nube-ready',  text: '¿Listo? ¡Vamos!' },
-  { id: 'nube-dice',   text: '¡Nube dice!' },
-  { id: 'new-word',    text: '¡Nueva palabra!' },
-  { id: 'new-friend',  text: '¡Nuevo amigo!' },
-  { id: 'new-chispa',  text: '¡Nueva Chispa!' },
+  { id: 'nube-hello',    text: '¡Hola! Soy Nube.' },
+  { id: 'nube-ready',    text: '¿Listo? ¡Vamos!' },
+  { id: 'nube-dice',     text: '¡Nube dice!' },
+  { id: 'new-word',      text: '¡Nueva palabra!' },
+  { id: 'new-friend',    text: '¡Nuevo amigo!' },
+  { id: 'new-chispa',    text: '¡Nueva Chispa!' },
+  { id: 'say-it-praise', text: '¡Perfecto! Ya lo dijiste.' },
 ];
 
 // ── ElevenLabs TTS ───────────────────────────────────────────────────────────

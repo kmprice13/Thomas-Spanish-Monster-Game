@@ -174,3 +174,32 @@ export function getNumberWord(value: number): NumberWord {
 export function vocabById(id: string): VocabItem | undefined {
   return MEADOW_VOCAB.find((v) => v.id === id);
 }
+
+/**
+ * Round-robin-by-category reordering of MEADOW_VOCAB, computed once at
+ * module load. Same items, same length — just reshuffled so unlocking
+ * sequentially gives a mix of categories instead of a long run of one
+ * category (interleaved practice retains better than blocked practice).
+ */
+function computeUnlockOrder(vocab: readonly VocabItem[]): VocabItem[] {
+  const buckets = new Map<VocabCategory, VocabItem[]>();
+  for (const v of vocab) {
+    if (!buckets.has(v.category)) buckets.set(v.category, []);
+    buckets.get(v.category)!.push(v);
+  }
+  const cats = [...buckets.keys()];
+  const order: VocabItem[] = [];
+  let remaining = vocab.length;
+  while (remaining > 0) {
+    for (const cat of cats) {
+      const bucket = buckets.get(cat)!;
+      if (bucket.length === 0) continue;
+      order.push(bucket.shift()!);
+      remaining--;
+    }
+  }
+  return order;
+}
+
+/** Sequential unlock order — index into this, not MEADOW_VOCAB, for pacing. */
+export const UNLOCK_ORDER: readonly VocabItem[] = computeUnlockOrder(MEADOW_VOCAB);

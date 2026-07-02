@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { QuestDirector } from './QuestDirector';
-import { MEADOW_VOCAB } from '../content/vocabulary';
+import { MEADOW_VOCAB, UNLOCK_ORDER } from '../content/vocabulary';
 
 /** Deterministic RNG for repeatable tests. */
 function seeded(seed: number): () => number {
@@ -100,5 +100,49 @@ describe('QuestDirector', () => {
     d.start();
     const specs = d.buildSpawnSet();
     expect(specs.some((s) => s.vocab.id === d.quest.target.id)).toBe(true);
+  });
+
+  it('single-target spawn set contains only the current target', () => {
+    const d = new QuestDirector({ rng: seeded(19) });
+    d.start();
+    const specs = d.buildSingleTargetSpawn();
+    expect(specs).toHaveLength(1);
+    expect(specs[0].vocab.id).toBe(d.quest.target.id);
+  });
+});
+
+describe('UNLOCK_ORDER', () => {
+  it('contains every MEADOW_VOCAB id exactly once', () => {
+    expect(UNLOCK_ORDER).toHaveLength(MEADOW_VOCAB.length);
+    const ids = UNLOCK_ORDER.map((v) => v.id).sort();
+    const expected = MEADOW_VOCAB.map((v) => v.id).sort();
+    expect(ids).toEqual(expected);
+  });
+
+  it('interleaves categories — no run of more than 2 same-category items in the first 15 slots', () => {
+    let runLength = 1;
+    for (let i = 1; i < Math.min(15, UNLOCK_ORDER.length); i++) {
+      if (UNLOCK_ORDER[i].category === UNLOCK_ORDER[i - 1].category) {
+        runLength++;
+        expect(runLength).toBeLessThanOrEqual(2);
+      } else {
+        runLength = 1;
+      }
+    }
+  });
+});
+
+describe('QuestDirector SM-2 target selection', () => {
+  it('prefers a due-for-review word over uniform-random selection', () => {
+    const dueId = UNLOCK_ORDER[0].id; // guaranteed active from INITIAL_ACTIVE
+    const d = new QuestDirector({ rng: seeded(23), wordsForReview: () => [dueId] });
+    const q = d.start();
+    expect(q.target.id).toBe(dueId);
+  });
+
+  it('falls back to uniform-random when nothing is due', () => {
+    const d = new QuestDirector({ rng: seeded(23), wordsForReview: () => [] });
+    const q = d.start();
+    expect(d.activeVocab.map((v) => v.id)).toContain(q.target.id);
   });
 });

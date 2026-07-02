@@ -626,6 +626,72 @@ body {
   75%       { transform: translateX(8px); }
 }
 
+/* ====================== Say it aloud overlay ====================== */
+#say-it-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 40px;
+  gap: 18px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent calc(100% - 260px),
+    rgba(0, 0, 0, 0.48) calc(100% - 180px)
+  );
+  z-index: 50;
+  pointer-events: all;
+}
+
+#say-it-overlay.hidden { display: none; }
+
+.say-it-word {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #fff8e8;
+  text-shadow: 0 3px 0 #3a1800;
+  letter-spacing: 0.02em;
+}
+
+.say-it-mic {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: #fff8e8;
+  border: 4px solid #7a4e2a;
+  box-shadow: 0 6px 0 #3a1800;
+  animation: say-it-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes say-it-pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+
+.say-it-help {
+  padding: 14px 28px;
+  background: #fff8e8;
+  border: 4px solid #7a4e2a;
+  border-radius: var(--px);
+  box-shadow: 0 6px 0 #3a1800;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #5a3200;
+  cursor: pointer;
+  transition: transform 0.06s, box-shadow 0.06s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.say-it-help:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #3a1800;
+}
+
+.say-it-help.hidden { display: none; }
+
 /* ====================== Customizer ====================== */
 .customizer-body {
   display: flex;

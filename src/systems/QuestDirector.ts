@@ -10,8 +10,8 @@
  */
 import {
   COLOR_WORDS,
-  MEADOW_VOCAB,
   NUMBER_WORDS,
+  UNLOCK_ORDER,
   type ColorWord,
   type ModelKey,
   type VocabItem,
@@ -71,21 +71,26 @@ export class QuestDirector {
   private current!: Quest;
   private collectedCreatures = new Set<string>();
 
+  private readonly wordsForReviewFn: () => readonly string[];
+
   constructor(opts: {
     npcName?: string;
     rng?: Rng;
     alreadyCollected?: readonly string[];
     initialProgress?: { nextUnlockIndex: number; completed: number };
+    /** Due-for-review vocab ids, soonest-due first (SM-2 scheduling). */
+    wordsForReview?: () => readonly string[];
   } = {}) {
     this.npcName = opts.npcName ?? 'Nube';
     this.rng = opts.rng ?? Math.random;
     this.nextUnlockIndex = Math.min(
       Math.max(opts.initialProgress?.nextUnlockIndex ?? INITIAL_ACTIVE, INITIAL_ACTIVE),
-      MEADOW_VOCAB.length,
+      UNLOCK_ORDER.length,
     );
     this.completed = Math.max(0, opts.initialProgress?.completed ?? 0);
-    this.active = MEADOW_VOCAB.slice(0, this.nextUnlockIndex);
+    this.active = UNLOCK_ORDER.slice(0, this.nextUnlockIndex);
     for (const id of opts.alreadyCollected ?? []) this.collectedCreatures.add(id);
+    this.wordsForReviewFn = opts.wordsForReview ?? (() => []);
   }
 
   /** Snapshot of unlock progress, for persistence. */
@@ -109,6 +114,19 @@ export class QuestDirector {
     return arr[Math.floor(this.rng() * arr.length)];
   }
 
+  /**
+   * Prefer a word due for SM-2 review when one exists in the given pool,
+   * otherwise fall back to uniform-random selection (original behavior).
+   */
+  private pickTargetFrom(pool: readonly VocabItem[]): VocabItem {
+    const due = this.wordsForReviewFn().filter((id) => pool.some((v) => v.id === id));
+    if (due.length > 0) {
+      const candidates = due.slice(0, Math.min(3, due.length)).map((id) => pool.find((v) => v.id === id)!);
+      return this.pick(candidates);
+    }
+    return this.pick(pool);
+  }
+
   private shuffle<T>(arr: T[]): T[] {
     const copy = [...arr];
     for (let i = copy.length - 1; i > 0; i--) {
@@ -130,7 +148,7 @@ export class QuestDirector {
 
   /** Start the very first quest (always a gentle 'find'). */
   start(): Quest {
-    const target = this.pick(this.active);
+    const target = this.pickTargetFrom(this.active);
     this.current = { kind: 'find', target, line: findLine(target), count: 1, collected: 0, carrying: false };
     return this.current;
   }
@@ -141,9 +159,9 @@ export class QuestDirector {
     const event: NextEvent = { levelUp: false };
 
     // Unlock a new word every 2 completions until the full set is active.
-    if (this.completed % 2 === 0 && this.nextUnlockIndex < MEADOW_VOCAB.length) {
-      const word = MEADOW_VOCAB[this.nextUnlockIndex];
-      this.active = MEADOW_VOCAB.slice(0, this.nextUnlockIndex + 1);
+    if (this.completed % 2 === 0 && this.nextUnlockIndex < UNLOCK_ORDER.length) {
+      const word = UNLOCK_ORDER[this.nextUnlockIndex];
+      this.active = UNLOCK_ORDER.slice(0, this.nextUnlockIndex + 1);
       this.nextUnlockIndex += 1;
       event.unlockedWord = word;
     }
@@ -167,31 +185,36 @@ export class QuestDirector {
     const base = { collected: 0, carrying: false };
     switch (kind) {
       case 'touch': {
-        const target = this.pick(this.active);
+        const target = this.pickTargetFrom(this.active);
         return { kind, target, line: touchLine(target), count: 1, ...base };
       }
       case 'give': {
-        const target = this.pick(this.active);
+        const target = this.pickTargetFrom(this.active);
         return { kind, target, line: giveLine(target, this.npcName), count: 1, ...base };
       }
       case 'count': {
-        const target = this.pick(this.active);
+        const target = this.pickTargetFrom(this.active);
         const maxN = Math.min(3, NUMBER_WORDS.length);
         const num = NUMBER_WORDS[1 + Math.floor(this.rng() * (maxN - 1))]; // 2..3
         return { kind, target, line: countLine(target, num), count: num.value, ...base };
       }
       case 'color': {
         const colorable = this.active.filter((v) => COLORABLE.has(v.model));
-        const target = this.pick(colorable.length ? colorable : this.active);
+        const target = this.pickTargetFrom(colorable.length ? colorable : this.active);
         const color = this.pick(COLOR_WORDS);
         return { kind, target, line: colorLine(target, color), count: 1, color, ...base };
       }
       case 'find':
       default: {
-        const target = this.pick(this.active);
+        const target = this.pickTargetFrom(this.active);
         return { kind, target, line: findLine(target), count: 1, ...base };
       }
     }
+  }
+
+  /** Single-item spawn for the errorless first-encounter sequence — no distractors. */
+  buildSingleTargetSpawn(): SpawnSpec[] {
+    return [{ vocab: this.current.target }];
   }
 
   /**

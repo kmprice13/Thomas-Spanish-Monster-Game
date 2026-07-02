@@ -3,8 +3,9 @@ import { AudioSystem } from '../systems/AudioSystem';
 import { AudioClips } from '../systems/AudioClips';
 import { GameUI } from '../systems/GameUI';
 import { ProgressStore } from '../systems/ProgressStore';
-import { QuestDirector } from '../systems/QuestDirector';
+import { QuestDirector, type SpawnSpec } from '../systems/QuestDirector';
 import { SpanishVoice } from '../systems/SpanishVoice';
+import { VoiceActivityDetector } from '../systems/VoiceActivityDetector';
 import { praise, nudge } from '../content/quests';
 import { MEADOW_VOCAB } from '../content/vocabulary';
 import { ACTIVE_COMMANDS, type CommandWord, type CommandAction } from '../content/commands';
@@ -67,7 +68,12 @@ const ITEM_SCATTER: ReadonlyArray<{ x: number; y: number }> = [
   { x: 462, y: 485 },  // inner right (overflow)
 ];
 
-type Phase = 'start' | 'introducing' | 'speaking' | 'playing' | 'celebrating' | 'hatching' | 'simon';
+// Below this many introduced words, a brand-new word gets a bare-word first
+// encounter (no carrier sentence — there's no known vocabulary yet to hang
+// one on). At/above it, reuse the existing "¡Mira! ¡X!" carrier frame.
+const FIRST_ENCOUNTER_BARE_THRESHOLD = 8;
+
+type Phase = 'start' | 'firstEncounter' | 'speaking' | 'playing' | 'celebrating' | 'hatching' | 'simon';
 
 interface WorldObj {
   x: number;
@@ -146,6 +152,14 @@ export class MainScene extends Phaser.Scene {
   private simonTarget: CommandAction | null = null;
   private advancing = false; // re-entrancy guard for advanceQuest()
 
+  // ── First encounter (errorless intro to a brand-new word) ─────────────────
+  private firstEncounterLabel: Phaser.GameObjects.Text | null = null;
+  private firstEncounterResolve: (() => void) | null = null;
+
+  // ── Say-it-aloud (self-attested production step, VAD-gated) ───────────────
+  private vad: VoiceActivityDetector | null = null;
+  private sayItResolve: (() => void) | null = null;
+
   // ── Debug HUD (?debug=1) — diagnoses the "Thomas vanishes" bug (#20) ──────
   private debugEl: HTMLElement | null = null;
   private debugLog: string[] = [];
@@ -199,7 +213,9 @@ export class MainScene extends Phaser.Scene {
       npcName: 'Nube',
       alreadyCollected: this.progress.creatures,
       initialProgress: this.progress.questProgress,
+      wordsForReview: () => this.progress.wordsForReview(),
     });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.vad?.dispose());
 
     this.ui = new GameUI({
       onPlay:       () => void this.startGame(),
@@ -463,13 +479,14 @@ export class MainScene extends Phaser.Scene {
       }
       // Tap-to-collect only fires from a DIFFERENT finger than the joystick,
       // so two-thumb play (move + tap) works correctly on iPad
-      if (!wasJoystick && this.phase === 'playing') {
+      if (!wasJoystick && (this.phase === 'playing' || this.phase === 'firstEncounter')) {
         for (const wo of this.worldObjects) {
           if (!wo.active) continue;
           const dx = ptr.x - wo.x;
           const dy = ptr.y - wo.y;
           if (Math.sqrt(dx * dx + dy * dy) < COLLECT_RADIUS + 10) {
-            this.evaluateObject(wo);
+            if (this.phase === 'firstEncounter') this.onFirstEncounterTap(wo);
+            else this.evaluateObject(wo);
             break;
           }
         }
@@ -741,6 +758,15 @@ export class MainScene extends Phaser.Scene {
 
   private async startGame(): Promise<void> {
     await this.clips.init();
+
+    // One-time mic permission probe from this user-gesture (Play tap), so any
+    // OS prompt appears at a clearly intentional moment, not mid-quest.
+    this.vad = new VoiceActivityDetector();
+    if (!this.progress.settings.micDenied) {
+      const ok = await this.vad.primePermission();
+      if (!ok) this.progress.setSettings({ micDenied: true });
+    }
+
     this.ui.enterPlay('');
     this.ui.setPalCount(this.progress.creatures.length);
     this.ui.updatePalBook(this.progress.creatures, MEADOW_VOCAB);
@@ -752,31 +778,175 @@ export class MainScene extends Phaser.Scene {
     this.hideSpeechBubble();
 
     const quest = this.questDir.start();
-    this.spawnRound();
-
-    if (this.progress.needsIntro(quest.target.id)) await this.runIntro();
-    else this.speakQuestCommand();
+    if (this.progress.needsIntro(quest.target.id)) {
+      await this.runFirstEncounter();
+    } else {
+      this.spawnRound();
+      this.speakQuestCommand();
+    }
   }
 
-  // ── Intro sequence ────────────────────────────────────────────────────────
+  // ── First encounter (errorless intro to a brand-new word) ─────────────────
 
-  private async runIntro(): Promise<void> {
+  private async runFirstEncounter(): Promise<void> {
     const quest = this.questDir.quest;
-    this.phase = 'introducing';
-    this.progress.markIntroduced(quest.target.id);
-
-    const targetWO = this.worldObjects.find(wo => wo.vocab.id === quest.target.id && wo.active);
-    if (targetWO) { targetWO.spotlit = true; this.redrawRings(targetWO); }
+    const target = quest.target;
+    this.phase = 'firstEncounter';
     this.npcBounceTimer = 0.8;
     this.ui.setQuest(quest.kind, true);
 
-    this.showSpeechBubble(quest.target.say);
-    await this.clips.speakAsync(`intro-${quest.target.id}`, `¡Mira! ¡${quest.target.say}!`);
-    await delay(600);
+    // Single item, no distractors — nothing else is tappable, so this cannot fail.
+    this.spawnRound(this.questDir.buildSingleTargetSpawn());
+    const wo = this.worldObjects[0];
+    this.showFirstEncounterLabel(target, wo.x, wo.y);
 
-    if (targetWO) { targetWO.spotlit = false; this.redrawRings(targetWO); }
+    const bare = this.progress.introducedCount() < FIRST_ENCOUNTER_BARE_THRESHOLD;
+    this.showSpeechBubble(target.say);
+    if (bare) {
+      // No known vocabulary yet to build a carrier sentence from — bare word only.
+      await this.clips.speakAsync(`word-${target.id}`, target.say);
+    } else {
+      // Reuses the same "¡Mira!" carrier frame already said before every quest —
+      // it's overlearned furniture by now, so only the noun is genuinely new.
+      await this.clips.speakAsync(`intro-${target.id}`, `¡Mira! ¡${target.say}!`);
+    }
+
+    await this.waitForFirstEncounterTap();
+    this.hideFirstEncounterLabel();
+    this.progress.markIntroduced(target.id);
     this.ui.setQuest(quest.kind, false);
+
+    // Guaranteed-success, no-fail praise — same lighter pattern as Nube Says
+    // (no burstConfetti, no phase='celebrating'): this isn't the real quiz win.
+    this.sfx.play('correct');
+    await delay(400);
+    const line = praise(this.praiseIndex++);
+    this.ui.showBanner(line);
+    this.clips.speak(`praise-${this.praiseIndex % 6}`, line);
+    this.awardCoin();
+    await delay(700);
+    this.hideSpeechBubble();
+
+    await this.runSayItAloud(target);
+
+    // Fall through into the REAL quest for this word — full distractor round.
+    this.spawnRound();
     this.speakQuestCommand();
+  }
+
+  private showFirstEncounterLabel(vocab: VocabItem, x: number, y: number): void {
+    this.firstEncounterLabel?.destroy();
+    this.firstEncounterLabel = this.add.text(x, y + 52, vocab.say, {
+      fontSize: '24px',
+      fontFamily: '"Fredoka", system-ui, sans-serif',
+      color: '#5a3200',
+      fontStyle: 'bold',
+      stroke: '#fff8e8',
+      strokeThickness: 5,
+    }).setOrigin(0.5).setDepth(15).setScale(0.85);
+    this.tweens.add({ targets: this.firstEncounterLabel, scaleX: 1, scaleY: 1, duration: 280, ease: 'Back.out' });
+  }
+
+  private hideFirstEncounterLabel(): void {
+    this.firstEncounterLabel?.destroy();
+    this.firstEncounterLabel = null;
+  }
+
+  private onFirstEncounterTap(wo: WorldObj): void {
+    if (this.phase !== 'firstEncounter' || !wo.active) return;
+    wo.active = false;
+    this.tweens.add({
+      targets: wo.container,
+      scaleX: 0, scaleY: 0, alpha: 0,
+      duration: 300,
+      ease: 'Back.in',
+      onComplete: () => wo.container.setVisible(false),
+    });
+    this.firstEncounterResolve?.();
+    this.firstEncounterResolve = null;
+  }
+
+  private waitForFirstEncounterTap(): Promise<void> {
+    return new Promise(resolve => {
+      this.firstEncounterResolve = resolve;
+      // Safety valve — never hard-block on a lost tap/render glitch.
+      setTimeout(() => { if (this.firstEncounterResolve === resolve) { this.firstEncounterResolve = null; resolve(); } }, 20000);
+    });
+  }
+
+  // ── Say it aloud (self-attested production step) ──────────────────────────
+  //
+  // Never grades pronunciation — the mic is only ever used to detect that a
+  // sound happened (VoiceActivityDetector), never what was said. A lisp or
+  // mispronunciation can never register as failure. In the mic-granted path,
+  // no skip button is ever shown until an 18s silence timeout — otherwise
+  // Thomas would quickly learn he can tap through it without speaking.
+
+  private async runSayItAloud(vocab: VocabItem): Promise<void> {
+    const skipMic = this.progress.settings.micDenied || VoiceActivityDetector.isKnownDenied || !this.vad;
+    this.showSayItOverlay(vocab.say, skipMic);
+    this.clips.speak(`say-it-${vocab.id}`, `Ahora dilo tú: ¡${vocab.say}!`);
+
+    if (skipMic) {
+      await this.waitForSayItTap();
+    } else {
+      const result = await this.vad!.listenForSpeech({ sustainedMs: 350, timeoutMs: 18000 });
+      if (!result.detected) {
+        if (result.reason === 'denied') {
+          this.progress.setSettings({ micDenied: true });
+          this.showSayItHelpButton('¡Lo dije!');
+        } else {
+          // Only revealed after a long silence — framed as help, not a shortcut.
+          this.showSayItHelpButton('¿Necesitas ayuda?');
+        }
+        await this.waitForSayItTap();
+      }
+    }
+
+    this.hideSayItOverlay();
+    this.sfx.play('correct');
+    this.clips.speak('say-it-praise', '¡Perfecto! Ya lo dijiste.');
+  }
+
+  private showSayItOverlay(word: string, showHelpImmediately: boolean): void {
+    const overlay = document.getElementById('say-it-overlay')!;
+    const wordEl  = document.getElementById('say-it-word')!;
+    const micEl   = document.getElementById('say-it-mic')!;
+    const button  = document.getElementById('say-it-help-button') as HTMLButtonElement;
+
+    wordEl.textContent = word;
+    overlay.classList.remove('hidden');
+    // The pulsing mic only makes sense while actually listening — hide it in
+    // the no-mic fallback path so it never implies listening that isn't happening.
+    micEl.classList.toggle('hidden', showHelpImmediately);
+    button.classList.add('hidden');
+    button.onclick = null;
+
+    if (showHelpImmediately) this.showSayItHelpButton('¡Lo dije!');
+  }
+
+  private showSayItHelpButton(label: string): void {
+    const button = document.getElementById('say-it-help-button') as HTMLButtonElement;
+    const micEl  = document.getElementById('say-it-mic')!;
+    micEl.classList.add('hidden'); // listening has stopped by the time the help button appears
+    button.textContent = label;
+    button.classList.remove('hidden');
+    button.onclick = () => {
+      this.sayItResolve?.();
+      this.sayItResolve = null;
+    };
+  }
+
+  private hideSayItOverlay(): void {
+    const overlay = document.getElementById('say-it-overlay')!;
+    const button  = document.getElementById('say-it-help-button') as HTMLButtonElement;
+    overlay.classList.add('hidden');
+    button.classList.add('hidden');
+    button.onclick = null;
+  }
+
+  private waitForSayItTap(): Promise<void> {
+    return new Promise(resolve => { this.sayItResolve = resolve; });
   }
 
   private speakQuestCommand(): void {
@@ -803,13 +973,13 @@ export class MainScene extends Phaser.Scene {
 
   // ── World object spawning ─────────────────────────────────────────────────
 
-  private spawnRound(): void {
+  private spawnRound(specs?: SpawnSpec[]): void {
     for (const wo of this.worldObjects) wo.container.destroy();
     this.worldObjects = [];
 
-    const specs = this.questDir.buildSpawnSet(4);
+    const built = specs ?? this.questDir.buildSpawnSet(4);
 
-    specs.forEach((spec, i) => {
+    built.forEach((spec, i) => {
       const pos = ITEM_SCATTER[i] ?? ITEM_SCATTER[ITEM_SCATTER.length - 1];
       const wx  = pos.x;
       const wy  = pos.y;
@@ -1027,11 +1197,14 @@ export class MainScene extends Phaser.Scene {
       }
       if (event.awardCreature) this.pendingCreature = event.awardCreature.id;
 
-      this.spawnRound();
-      if (this.pendingCreature) return;
+      if (this.pendingCreature) { this.spawnRound(); return; }
 
-      if (this.progress.needsIntro(quest.target.id)) await this.runIntro();
-      else this.speakQuestCommand();
+      if (this.progress.needsIntro(quest.target.id)) {
+        await this.runFirstEncounter();
+      } else {
+        this.spawnRound();
+        this.speakQuestCommand();
+      }
     } finally {
       this.advancing = false;
     }
