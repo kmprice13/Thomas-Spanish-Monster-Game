@@ -19,6 +19,11 @@ export class AudioClips {
   private muted = false;
   private ready = false;
   private rate = 1;
+  // Resolvers for any play() promise currently in flight — el.pause() (used by
+  // cancel()) does NOT fire 'ended', so without this a cancelled clip's promise
+  // (and any onEnd callback chained off it, e.g. a phase transition) would hang
+  // forever instead of resolving.
+  private pendingResolves = new Set<() => void>();
 
   constructor(voice: SpanishVoice) {
     this.voice = voice;
@@ -68,11 +73,19 @@ export class AudioClips {
         el = new Audio(`/audio/${id}.mp3`);
         this.elements.set(id, el);
       }
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        this.pendingResolves.delete(finish);
+        resolve();
+      };
+      this.pendingResolves.add(finish);
       el.playbackRate = this.rate;
       el.currentTime = 0;
-      el.onended = () => resolve();
-      el.onerror = () => resolve(); // silent fallback
-      el.play().catch(() => resolve());
+      el.onended = finish;
+      el.onerror = finish; // silent fallback
+      el.play().catch(finish);
     });
   }
 
@@ -103,6 +116,10 @@ export class AudioClips {
       el.pause();
       el.currentTime = 0;
     }
+    // el.pause() doesn't fire 'ended' — resolve any in-flight play() promises
+    // (and whatever onEnd callback / phase transition is chained off them)
+    // directly, so cancelling a clip can never leave a caller hanging forever.
+    for (const finish of [...this.pendingResolves]) finish();
     this.voice.cancel();
   }
 

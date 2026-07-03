@@ -13,10 +13,11 @@ export interface VadResult {
 }
 
 export interface VadOptions {
-  sustainedMs?: number;         // contiguous time above threshold to count as "spoke"
+  sustainedMs?: number;         // total time above threshold (tolerating brief dips) to count as "spoke"
   ambientSampleMs?: number;     // noise-floor calibration window before listening starts
   timeoutMs?: number;           // failsafe — resolves as timeout if nothing heard
   thresholdMultiplier?: number; // multiple of measured ambient RMS to count as sound
+  dipToleranceMs?: number;      // how long a below-threshold dip can last before it resets the streak
 }
 
 export class VoiceActivityDetector {
@@ -62,8 +63,9 @@ export class VoiceActivityDetector {
     const sustainedMs = opts.sustainedMs ?? 350;
     const ambientSampleMs = opts.ambientSampleMs ?? 400;
     const timeoutMs = opts.timeoutMs ?? 18000;
-    const mult = opts.thresholdMultiplier ?? 1.8;
-    const MIN_THRESHOLD = 0.02;
+    const mult = opts.thresholdMultiplier ?? 1.5;
+    const dipToleranceMs = opts.dipToleranceMs ?? 200;
+    const MIN_THRESHOLD = 0.015;
 
     try {
       this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -99,7 +101,12 @@ export class VoiceActivityDetector {
       const startTs = performance.now();
       let noiseFloor = 0;
       let samples = 0;
+      // Real speech isn't a flat plateau — it dips below any fixed threshold
+      // every syllable or two (consonant closures, brief pauses). Track a
+      // burst's start time and only cancel it once a dip has lasted longer
+      // than dipToleranceMs, instead of resetting on the very first dip.
       let aboveSince: number | null = null;
+      let belowSince: number | null = null;
 
       const tick = () => {
         if (done) return;
@@ -110,15 +117,21 @@ export class VoiceActivityDetector {
           samples++;
         } else {
           const threshold = Math.max(noiseFloor * mult, MIN_THRESHOLD);
+          const now = performance.now();
           if (level > threshold) {
-            if (aboveSince === null) aboveSince = performance.now();
-            else if (performance.now() - aboveSince >= sustainedMs) {
+            belowSince = null;
+            if (aboveSince === null) aboveSince = now;
+            else if (now - aboveSince >= sustainedMs) {
               clearTimeout(timeoutHandle);
               finish({ detected: true, reason: 'sound' });
               return;
             }
-          } else {
-            aboveSince = null;
+          } else if (aboveSince !== null) {
+            if (belowSince === null) belowSince = now;
+            else if (now - belowSince >= dipToleranceMs) {
+              aboveSince = null;
+              belowSince = null;
+            }
           }
         }
         this.raf = requestAnimationFrame(tick);

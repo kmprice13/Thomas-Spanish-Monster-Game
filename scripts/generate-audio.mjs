@@ -111,7 +111,10 @@ const PHRASES = [
   ...COMMANDS.map(c => ({ id: `simon-${c.id}`, text: c.es })),
   ...PRAISE.map((text, i) => ({ id: `praise-${i}`, text })),
   ...NUDGE.map((text,  i) => ({ id: `nudge-${i}`,  text })),
-  { id: 'nube-hello',    text: '¡Hola! Soy Nube.' },
+  // Higher stability / lower style than the default — the expressive default
+  // settings produced a breathy leading artifact ("ooooh, hola") on this
+  // exclamation-led opener across two separate generations.
+  { id: 'nube-hello', text: '¡Hola! Soy Nube.', voiceSettings: { stability: 0.8, style: 0.0 } },
   { id: 'nube-ready',    text: '¿Listo? ¡Vamos!' },
   { id: 'nube-dice',     text: '¡Nube dice!' },
   { id: 'new-word',      text: '¡Nueva palabra!' },
@@ -122,7 +125,14 @@ const PHRASES = [
 
 // ── ElevenLabs TTS ───────────────────────────────────────────────────────────
 
-async function generateClip(text, outPath) {
+const DEFAULT_VOICE_SETTINGS = {
+  stability: 0.55,
+  similarity_boost: 0.80,
+  style: 0.20,
+  use_speaker_boost: true,
+};
+
+async function generateClip(text, outPath, voiceSettingsOverride) {
   if (existsSync(outPath)) return false; // already generated
 
   const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`, {
@@ -135,12 +145,7 @@ async function generateClip(text, outPath) {
     body: JSON.stringify({
       text,
       model_id: MODEL,
-      voice_settings: {
-        stability: 0.55,
-        similarity_boost: 0.80,
-        style: 0.20,
-        use_speaker_boost: true,
-      },
+      voice_settings: { ...DEFAULT_VOICE_SETTINGS, ...voiceSettingsOverride },
     }),
   });
 
@@ -161,10 +166,10 @@ console.log(`Generating ${PHRASES.length} clips  voice=${VOICE_ID}  model=${MODE
 const generated = [];
 let newCount = 0;
 
-for (const { id, text } of PHRASES) {
+for (const { id, text, voiceSettings } of PHRASES) {
   const outPath = join(OUT, `${id}.mp3`);
   try {
-    const wasNew = await generateClip(text, outPath);
+    const wasNew = await generateClip(text, outPath, voiceSettings);
     generated.push(id);
     process.stdout.write(wasNew ? `  ✓ ${id}\n` : `  – ${id} (cached)\n`);
     if (wasNew) {

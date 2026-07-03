@@ -610,7 +610,10 @@ export class MainScene extends Phaser.Scene {
     if (this.phase === 'start') return;
 
     // ── Player movement ──────────────────────────────────────────────────
-    const canMove = this.phase === 'playing' || this.phase === 'speaking';
+    // 'firstEncounter' allows movement too — every other quest teaches "walk
+    // Thomas onto it," so the first encounter with a new word should feel
+    // the same, not suddenly require tapping a still-frozen character.
+    const canMove = this.phase === 'playing' || this.phase === 'speaking' || this.phase === 'firstEncounter';
     if (canMove) {
       let ix = 0, iy = 0;
       if (this.cursors.left.isDown  || this.wasd.A.isDown) ix -= 1;
@@ -720,6 +723,19 @@ export class MainScene extends Phaser.Scene {
       }
     }
 
+    // ── First-encounter interaction (walk onto the single item, same as normal play) ──
+    if (this.phase === 'firstEncounter') {
+      for (const wo of this.worldObjects) {
+        if (!wo.active) continue;
+        const dx = this.playerX - wo.x;
+        const dy = this.playerY - wo.y;
+        if (Math.sqrt(dx * dx + dy * dy) < COLLECT_RADIUS) {
+          this.onFirstEncounterTap(wo);
+          break;
+        }
+      }
+    }
+
     // ── Phase timers ──────────────────────────────────────────────────────
     if (this.phase === 'celebrating') {
       this.celebrateTimer -= dt;
@@ -789,6 +805,7 @@ export class MainScene extends Phaser.Scene {
   // ── First encounter (errorless intro to a brand-new word) ─────────────────
 
   private async runFirstEncounter(): Promise<void> {
+    this.clips.cancel(); // defensive — never start this over a still-playing prior line
     const quest = this.questDir.quest;
     const target = quest.target;
     this.phase = 'firstEncounter';
@@ -820,11 +837,15 @@ export class MainScene extends Phaser.Scene {
     // (no burstConfetti, no phase='celebrating'): this isn't the real quiz win.
     this.sfx.play('correct');
     await delay(400);
-    const line = praise(this.praiseIndex++);
+    const idx  = this.praiseIndex++;
+    const line = praise(idx);
     this.ui.showBanner(line);
-    this.clips.speak(`praise-${this.praiseIndex % 6}`, line);
     this.awardCoin();
-    await delay(700);
+    // Awaited (not fire-and-forget) — this flow is meant to feel unhurried,
+    // and letting the praise line fully finish before moving on avoids it
+    // racing against/overlapping the next spoken line.
+    await this.clips.speakAsync(`praise-${idx % 6}`, line);
+    await delay(300);
     this.hideSpeechBubble();
 
     await this.runSayItAloud(target);
@@ -883,13 +904,21 @@ export class MainScene extends Phaser.Scene {
   // Thomas would quickly learn he can tap through it without speaking.
 
   private async runSayItAloud(vocab: VocabItem): Promise<void> {
+    this.clips.cancel(); // defensive — never start this prompt over a still-playing prior line
     const skipMic = this.progress.settings.micDenied || VoiceActivityDetector.isKnownDenied || !this.vad;
     this.showSayItOverlay(vocab.say, skipMic);
-    this.clips.speak(`say-it-${vocab.id}`, `Ahora dilo tú: ¡${vocab.say}!`);
+    // Wait for Nube's own prompt to finish before listening — on speaker/mic
+    // devices (no headphones), starting VAD while this plays lets Nube's own
+    // voice bleed into the mic and inflate the ambient-noise calibration,
+    // making Thomas's actual (quieter) voice fail to cross the threshold.
+    await this.clips.speakAsync(`say-it-${vocab.id}`, `Ahora dilo tú: ¡${vocab.say}!`);
 
     if (skipMic) {
       await this.waitForSayItTap();
     } else {
+      // Small buffer so any speaker resonance/echo tail has settled before the
+      // ambient-noise calibration window starts.
+      await delay(300);
       const result = await this.vad!.listenForSpeech({ sustainedMs: 350, timeoutMs: 18000 });
       if (!result.detected) {
         if (result.reason === 'denied') {
@@ -905,7 +934,11 @@ export class MainScene extends Phaser.Scene {
 
     this.hideSayItOverlay();
     this.sfx.play('correct');
-    this.clips.speak('say-it-praise', '¡Perfecto! Ya lo dijiste.');
+    // Awaited — this was firing-and-forgetting straight into the next quest's
+    // spoken line (speakQuestCommand), so the "¡Perfecto!" congrats audio was
+    // getting cut off by the next question's audio starting on top of it.
+    await this.clips.speakAsync('say-it-praise', '¡Perfecto! Ya lo dijiste.');
+    await delay(300);
   }
 
   private showSayItOverlay(word: string, showHelpImmediately: boolean): void {
@@ -950,6 +983,10 @@ export class MainScene extends Phaser.Scene {
   }
 
   private speakQuestCommand(): void {
+    // Defensive — a prior stage (e.g. the first-encounter praise/say-it-aloud
+    // clips) may not have fully finished playing yet; never let two spoken
+    // lines overlap.
+    this.clips.cancel();
     const quest = this.questDir.quest;
     const kind  = quest.kind === 'touch' ? 'touch' : quest.kind === 'give' ? 'give' : 'find';
     this.phase = 'speaking';
@@ -1440,9 +1477,10 @@ export class MainScene extends Phaser.Scene {
     this.sfx.play('correct');
     await delay(700);
 
-    const line = praise(this.praiseIndex++);
+    const idx  = this.praiseIndex++;
+    const line = praise(idx);
     this.ui.showBanner(line);
-    this.clips.speak(`praise-${this.praiseIndex % 6}`, line);
+    this.clips.speak(`praise-${idx % 6}`, line);
     this.awardCoin();
     await delay(900);
 
