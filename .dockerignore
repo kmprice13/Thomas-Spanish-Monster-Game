@@ -1,0 +1,12 @@
+node_modules
+dist
+test-results
+playwright-report
+coverage
+.git
+.env
+.env.local
+*.local
+.DS_Store
+artifacts
+NOTES.md
