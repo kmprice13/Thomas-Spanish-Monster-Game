@@ -13,7 +13,8 @@ export interface VadResult {
 }
 
 export interface VadOptions {
-  sustainedMs?: number;         // total time above threshold (tolerating brief dips) to count as "spoke"
+  sustainedMs?: number;         // total time above threshold (tolerating brief dips) to confirm speech has started
+  trailingSilenceMs?: number;   // silence required after speech onset before we consider the word finished
   ambientSampleMs?: number;     // noise-floor calibration window before listening starts
   timeoutMs?: number;           // failsafe — resolves as timeout if nothing heard
   thresholdMultiplier?: number; // multiple of measured ambient RMS to count as sound
@@ -61,6 +62,7 @@ export class VoiceActivityDetector {
     if (!navigator.mediaDevices?.getUserMedia) return { detected: false, reason: 'unsupported' };
 
     const sustainedMs = opts.sustainedMs ?? 350;
+    const trailingSilenceMs = opts.trailingSilenceMs ?? 600;
     const ambientSampleMs = opts.ambientSampleMs ?? 400;
     const timeoutMs = opts.timeoutMs ?? 18000;
     const mult = opts.thresholdMultiplier ?? 1.5;
@@ -96,11 +98,18 @@ export class VoiceActivityDetector {
         this.dispose();
         resolve(result);
       };
-      const timeoutHandle = setTimeout(() => finish({ detected: false, reason: 'timeout' }), timeoutMs);
+      // If the timeout fires after speech onset was already confirmed, don't
+      // penalize Thomas for a word that trailed off into ambient noise that
+      // never quite settled below threshold — he did speak, so count it.
+      const timeoutHandle = setTimeout(
+        () => finish(spoke ? { detected: true, reason: 'sound' } : { detected: false, reason: 'timeout' }),
+        timeoutMs,
+      );
 
       const startTs = performance.now();
       let noiseFloor = 0;
       let samples = 0;
+      let spoke = false;
       // Real speech isn't a flat plateau — it dips below any fixed threshold
       // every syllable or two (consonant closures, brief pauses). Track a
       // burst's start time and only cancel it once a dip has lasted longer
@@ -118,19 +127,35 @@ export class VoiceActivityDetector {
         } else {
           const threshold = Math.max(noiseFloor * mult, MIN_THRESHOLD);
           const now = performance.now();
-          if (level > threshold) {
-            belowSince = null;
-            if (aboveSince === null) aboveSince = now;
-            else if (now - aboveSince >= sustainedMs) {
-              clearTimeout(timeoutHandle);
-              finish({ detected: true, reason: 'sound' });
-              return;
-            }
-          } else if (aboveSince !== null) {
-            if (belowSince === null) belowSince = now;
-            else if (now - belowSince >= dipToleranceMs) {
-              aboveSince = null;
+          if (!spoke) {
+            // Phase 1: confirm this is real speech, not a noise blip.
+            if (level > threshold) {
               belowSince = null;
+              if (aboveSince === null) aboveSince = now;
+              else if (now - aboveSince >= sustainedMs) {
+                spoke = true;
+                aboveSince = null;
+                belowSince = null;
+              }
+            } else if (aboveSince !== null) {
+              if (belowSince === null) belowSince = now;
+              else if (now - belowSince >= dipToleranceMs) {
+                aboveSince = null;
+                belowSince = null;
+              }
+            }
+          } else {
+            // Phase 2: speech confirmed — wait for Thomas to actually finish
+            // talking (a real stretch of silence) before calling it done.
+            if (level <= threshold) {
+              if (belowSince === null) belowSince = now;
+              else if (now - belowSince >= trailingSilenceMs) {
+                clearTimeout(timeoutHandle);
+                finish({ detected: true, reason: 'sound' });
+                return;
+              }
+            } else {
+              belowSince = null; // still talking
             }
           }
         }

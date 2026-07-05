@@ -672,11 +672,17 @@ export class MainScene extends Phaser.Scene {
       }
 
       // Give-quest delivery + carry indicator
-      const isCarrying = this.questDir.quest.kind === 'give' && this.questDir.quest.carrying;
+      let isCarrying = this.questDir.quest.kind === 'give' && this.questDir.quest.carrying;
       if (isCarrying) {
         const dx = this.playerX - NUBE_X;
         const dy = this.playerY - NUBE_Y;
-        if (Math.sqrt(dx * dx + dy * dy) < DELIVERY_RADIUS) this.onDelivery();
+        if (Math.sqrt(dx * dx + dy * dy) < DELIVERY_RADIUS) {
+          this.onDelivery();
+          // onDelivery() just hid the carry icon/ring/arrow — don't let the
+          // stale pre-delivery flag immediately re-show them below, frozen
+          // at Thomas's delivery spot next to Nube.
+          isCarrying = false;
+        }
       }
       // Keep carry icon above Thomas and pulse ring under Nube in sync
       this.carryIcon.setVisible(isCarrying);
@@ -1110,6 +1116,10 @@ export class MainScene extends Phaser.Scene {
       this.evalCooldown = 0.9;
       this.nudgeIndex++;
       this.wrongCount++;
+      // A second wrong tap can land before the first nudge clip (or a
+      // pending replay of the instruction) finishes playing — cut it off
+      // rather than let two clips sound on top of each other.
+      this.clips.cancel();
       this.clips.speak(`nudge-${this.nudgeIndex % 3}`, nudge(this.nudgeIndex));
       const q    = this.questDir.quest;
       const kind = q.kind === 'touch' ? 'touch' : q.kind === 'give' ? 'give' : 'find';
@@ -1222,7 +1232,15 @@ export class MainScene extends Phaser.Scene {
       // Every 4 vocab quests, run a Nube Says interlude (2 commands)
       this.simonCounter++;
       if (this.simonCounter % 4 === 0) {
+        // runSimonInterlude() sets this.phase = 'simon' for its duration and
+        // never restores it — whatever phase advanceQuest() was invoked
+        // under (e.g. 'celebrating', which the per-frame timer re-checks to
+        // pick up a pendingCreature hatch below) must be put back, or Thomas
+        // is left frozen on 'simon' with no further phase transition ever
+        // scheduled (soft lock, no spoken instruction).
+        const phaseBeforeSimon = this.phase;
         await this.runSimonInterlude();
+        this.phase = phaseBeforeSimon;
       }
 
       const { quest, event } = this.questDir.next();
@@ -1402,8 +1420,10 @@ export class MainScene extends Phaser.Scene {
       const img = this.add.image(m.x, m.y, m.key).setDisplaySize(m.w, m.h).setDepth(m.depth);
       this.islandDecos[i] = img;
       if (animate) {
+        const targetScaleX = img.scaleX;
+        const targetScaleY = img.scaleY;
         img.setScale(0);
-        this.tweens.add({ targets: img, scaleX: 1, scaleY: 1, duration: 600, delay: 1200, ease: 'Back.out' });
+        this.tweens.add({ targets: img, scaleX: targetScaleX, scaleY: targetScaleY, duration: 600, delay: 1200, ease: 'Back.out' });
       }
     });
   }
