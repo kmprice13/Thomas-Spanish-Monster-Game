@@ -1343,7 +1343,7 @@ export class MainScene extends Phaser.Scene {
     void this.clips.speakAsync('new-chispa', '¡Nueva Chispa!');
 
     this.phase = 'hatching';
-    this.hatchTimer = 2.2;
+    this.hatchTimer = 2.6;
 
     // Egg pop animation
     const eggGfx = this.add.graphics();
@@ -1351,21 +1351,62 @@ export class MainScene extends Phaser.Scene {
     eggGfx.lineStyle(4, 0x120d1a, 1);
     eggGfx.fillEllipse(0, 0, 38, 48);
     eggGfx.strokeEllipse(0, 0, 38, 48);
-    const egg = this.add.container(this.playerX, this.playerY - 30 * this.playerScaleRatio, [eggGfx]);
+    const eggX = this.playerX;
+    const eggEndY = this.playerY - 90 * this.playerScaleRatio;
+    const egg = this.add.container(eggX, this.playerY - 30 * this.playerScaleRatio, [eggGfx]);
     egg.setDepth(25);
     this.tweens.add({
       targets: egg,
-      y: this.playerY - 90 * this.playerScaleRatio,
+      y: eggEndY,
       scaleX: 1.3, scaleY: 1.3,
       alpha: 0,
       duration: 700,
       ease: 'Cubic.out',
-      onComplete: () => egg.destroy(),
+      onComplete: () => {
+        egg.destroy();
+        this.revealHatchedChispa(vocabId, eggX, eggEndY);
+      },
     });
 
     this.burstConfetti(this.playerX, this.playerY, 80);
     this.ui.setPalCount(this.progress.creatures.length);
     this.ui.updatePalBook(this.progress.creatures, MEADOW_VOCAB);
+  }
+
+  // One-time reveal of the newly caught Chispa — a brief "here's who you got"
+  // moment, not a persistent island resident (that felt too crowded).
+  private revealHatchedChispa(vocabId: string, x: number, y: number): void {
+    const sprite = this.add.image(x, y, `chispa_${vocabId}`).setDisplaySize(70, 62).setDepth(25);
+    const targetScaleX = sprite.scaleX;
+    const targetScaleY = sprite.scaleY;
+    sprite.setScale(0);
+    this.tweens.add({
+      targets: sprite,
+      scaleX: targetScaleX, scaleY: targetScaleY,
+      duration: 420,
+      ease: 'Back.out',
+      onComplete: () => {
+        this.tweens.add({
+          targets: sprite,
+          angle: { from: -6, to: 6 },
+          duration: 260,
+          yoyo: true,
+          repeat: 2,
+          ease: 'Sine.easeInOut',
+          onComplete: () => {
+            this.tweens.add({
+              targets: sprite,
+              y: y - 40,
+              scaleX: 0, scaleY: 0,
+              alpha: 0,
+              duration: 450,
+              ease: 'Cubic.in',
+              onComplete: () => sprite.destroy(),
+            });
+          },
+        });
+      },
+    });
   }
 
   // ── Speech bubble ────────────────────────────────────────────────────────

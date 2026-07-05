@@ -62,6 +62,20 @@ const COLORABLE: ReadonlySet<ModelKey> = new Set(['ball', 'gem', 'flower', 'star
 
 type Rng = () => number;
 
+// Daily new-word cap, tapered so day one still feels rich but the pace then
+// settles to a research-backed rate (~3-6 new words/day for durable
+// retention) instead of the whole word list unlockable in a single sitting.
+function unlockCapForDay(dayNumber: number): number {
+  if (dayNumber <= 1) return 10;
+  if (dayNumber <= 3) return 6;
+  return 4;
+}
+
+function localDateString(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export class QuestDirector {
   private readonly npcName: string;
   private readonly rng: Rng;
@@ -70,6 +84,10 @@ export class QuestDirector {
   private completed = 0;
   private current!: Quest;
   private collectedCreatures = new Set<string>();
+  private unlockDayNumber = 1;
+  private unlockDayDate: string | null = null;
+  private unlockedToday = 0;
+  private readonly todayFn: () => string;
 
   private readonly wordsForReviewFn: () => readonly string[];
 
@@ -77,25 +95,49 @@ export class QuestDirector {
     npcName?: string;
     rng?: Rng;
     alreadyCollected?: readonly string[];
-    initialProgress?: { nextUnlockIndex: number; completed: number };
+    initialProgress?: {
+      nextUnlockIndex: number;
+      completed: number;
+      unlockDayNumber?: number;
+      unlockDayDate?: string | null;
+      unlockedToday?: number;
+    };
     /** Due-for-review vocab ids, soonest-due first (SM-2 scheduling). */
     wordsForReview?: () => readonly string[];
+    /** Injectable "today" for tests; defaults to the real local calendar date. */
+    today?: () => string;
   } = {}) {
     this.npcName = opts.npcName ?? 'Nube';
     this.rng = opts.rng ?? Math.random;
+    this.todayFn = opts.today ?? localDateString;
     this.nextUnlockIndex = Math.min(
       Math.max(opts.initialProgress?.nextUnlockIndex ?? INITIAL_ACTIVE, INITIAL_ACTIVE),
       UNLOCK_ORDER.length,
     );
     this.completed = Math.max(0, opts.initialProgress?.completed ?? 0);
+    this.unlockDayNumber = Math.max(1, opts.initialProgress?.unlockDayNumber ?? 1);
+    this.unlockDayDate = opts.initialProgress?.unlockDayDate ?? null;
+    this.unlockedToday = Math.max(0, opts.initialProgress?.unlockedToday ?? 0);
     this.active = UNLOCK_ORDER.slice(0, this.nextUnlockIndex);
     for (const id of opts.alreadyCollected ?? []) this.collectedCreatures.add(id);
     this.wordsForReviewFn = opts.wordsForReview ?? (() => []);
   }
 
   /** Snapshot of unlock progress, for persistence. */
-  get progressSnapshot(): { nextUnlockIndex: number; completed: number } {
-    return { nextUnlockIndex: this.nextUnlockIndex, completed: this.completed };
+  get progressSnapshot(): {
+    nextUnlockIndex: number;
+    completed: number;
+    unlockDayNumber: number;
+    unlockDayDate: string | null;
+    unlockedToday: number;
+  } {
+    return {
+      nextUnlockIndex: this.nextUnlockIndex,
+      completed: this.completed,
+      unlockDayNumber: this.unlockDayNumber,
+      unlockDayDate: this.unlockDayDate,
+      unlockedToday: this.unlockedToday,
+    };
   }
 
   get quest(): Quest {
@@ -158,11 +200,24 @@ export class QuestDirector {
     this.completed += 1;
     const event: NextEvent = { levelUp: false };
 
-    // Unlock a new word every 2 completions until the full set is active.
-    if (this.completed % 2 === 0 && this.nextUnlockIndex < UNLOCK_ORDER.length) {
+    const today = this.todayFn();
+    if (today !== this.unlockDayDate) {
+      if (this.unlockDayDate !== null) this.unlockDayNumber += 1;
+      this.unlockDayDate = today;
+      this.unlockedToday = 0;
+    }
+
+    // Unlock a new word every 2 completions until the full set is active,
+    // capped per day so a long/fast session can't exhaust all vocabulary at once.
+    if (
+      this.completed % 2 === 0 &&
+      this.nextUnlockIndex < UNLOCK_ORDER.length &&
+      this.unlockedToday < unlockCapForDay(this.unlockDayNumber)
+    ) {
       const word = UNLOCK_ORDER[this.nextUnlockIndex];
       this.active = UNLOCK_ORDER.slice(0, this.nextUnlockIndex + 1);
       this.nextUnlockIndex += 1;
+      this.unlockedToday += 1;
       event.unlockedWord = word;
     }
 

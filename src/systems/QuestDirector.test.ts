@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { QuestDirector } from './QuestDirector';
+import { INITIAL_ACTIVE, QuestDirector } from './QuestDirector';
 import { MEADOW_VOCAB, UNLOCK_ORDER } from '../content/vocabulary';
 
 /** Deterministic RNG for repeatable tests. */
@@ -108,6 +108,61 @@ describe('QuestDirector', () => {
     const specs = d.buildSingleTargetSpawn();
     expect(specs).toHaveLength(1);
     expect(specs[0].vocab.id).toBe(d.quest.target.id);
+  });
+});
+
+describe('QuestDirector daily unlock cap', () => {
+  it('stops unlocking new words once the day-1 cap (10) is reached', () => {
+    const d = new QuestDirector({ rng: seeded(29), today: () => '2026-07-05' });
+    d.start();
+    let unlocked = 0;
+    for (let i = 0; i < 200; i++) {
+      const { event } = d.next();
+      if (event.unlockedWord) unlocked++;
+    }
+    expect(unlocked).toBe(10);
+    expect(d.progressSnapshot.unlockDayNumber).toBe(1);
+    expect(d.progressSnapshot.unlockedToday).toBe(10);
+  });
+
+  it('resets the daily count and advances dayNumber on a new calendar day', () => {
+    let date = '2026-07-05';
+    const d = new QuestDirector({ rng: seeded(31), today: () => date });
+    d.start();
+    for (let i = 0; i < 200; i++) d.next(); // exhaust day 1's cap (10)
+    expect(d.progressSnapshot.unlockedToday).toBe(10);
+
+    date = '2026-07-06';
+    const before = d.activeVocab.length;
+    let unlockedOnDay2 = 0;
+    for (let i = 0; i < 200; i++) {
+      const { event } = d.next();
+      if (event.unlockedWord) unlockedOnDay2++;
+    }
+    expect(d.progressSnapshot.unlockDayNumber).toBe(2);
+    expect(unlockedOnDay2).toBe(6); // days 2-3 cap
+    expect(d.activeVocab.length).toBe(before + 6);
+  });
+
+  it('resumes an in-progress day from persisted progress instead of restarting the cap', () => {
+    const d = new QuestDirector({
+      rng: seeded(37),
+      today: () => '2026-07-05',
+      initialProgress: {
+        nextUnlockIndex: INITIAL_ACTIVE,
+        completed: 0,
+        unlockDayNumber: 1,
+        unlockDayDate: '2026-07-05',
+        unlockedToday: 9, // only 1 left before today's cap of 10
+      },
+    });
+    d.start();
+    let unlocked = 0;
+    for (let i = 0; i < 50; i++) {
+      const { event } = d.next();
+      if (event.unlockedWord) unlocked++;
+    }
+    expect(unlocked).toBe(1);
   });
 });
 

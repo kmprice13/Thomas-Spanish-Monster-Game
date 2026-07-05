@@ -74,6 +74,12 @@ export interface WordRecord {
 export interface QuestProgress {
   nextUnlockIndex: number; // index into MEADOW_VOCAB of the next word to unlock
   completed: number;       // total quests completed
+  // Daily new-word pacing (research: ~3-6 new words/day for durable retention,
+  // vs. the whole 32-word list unlockable in one sitting) — see feedback from
+  // Thomas finishing all vocab in under an hour on day one.
+  unlockDayNumber: number;      // 1 = first day this pacing has ever run, increments once per new calendar day
+  unlockDayDate: string | null; // local YYYY-MM-DD this dayNumber/unlockedToday applies to
+  unlockedToday: number;        // new words unlocked so far on unlockDayDate
 }
 
 export interface ProgressData {
@@ -169,7 +175,7 @@ function defaultData(): ProgressData {
     unlockedColors: [],
     coins: 0,
     settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColorId: 'azul', playerSize: 'normal', micDenied: false },
-    questProgress: { nextUnlockIndex: INITIAL_ACTIVE, completed: 0 },
+    questProgress: { nextUnlockIndex: INITIAL_ACTIVE, completed: 0, unlockDayNumber: 1, unlockDayDate: null, unlockedToday: 0 },
   };
 }
 
