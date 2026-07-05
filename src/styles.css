@@ -378,6 +378,13 @@ body {
   font-size: 1rem;
 }
 
+/* ====================== Mic check ====================== */
+#mic-check .panel > button {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+}
+
 /* ====================== Start screen ====================== */
 .start-card {
   text-align: center;

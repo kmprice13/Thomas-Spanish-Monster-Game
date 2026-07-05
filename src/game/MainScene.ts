@@ -159,6 +159,9 @@ export class MainScene extends Phaser.Scene {
   // ── Say-it-aloud (self-attested production step, VAD-gated) ───────────────
   private vad: VoiceActivityDetector | null = null;
   private sayItResolve: (() => void) | null = null;
+  // Asked fresh every session (not persisted) — a "yes" last time doesn't
+  // mean he can talk out loud *this* time (plane, quiet room, headphones).
+  private quietSession = false;
 
   // ── Debug HUD (?debug=1) — diagnoses the "Thomas vanishes" bug (#20) ──────
   private debugEl: HTMLElement | null = null;
@@ -781,17 +784,31 @@ export class MainScene extends Phaser.Scene {
   private async startGame(): Promise<void> {
     await this.clips.init();
 
-    // One-time mic permission probe from this user-gesture (Play tap), so any
-    // OS prompt appears at a clearly intentional moment, not mid-quest.
-    this.vad = new VoiceActivityDetector();
-    if (!this.progress.settings.micDenied) {
-      const ok = await this.vad.primePermission();
-      if (!ok) this.progress.setSettings({ micDenied: true });
-    }
-
+    // Hide the start screen first — it and the mic-check overlay below share
+    // the same overlay z-index, so leaving it up would paint over (and block
+    // clicks to) the mic-check prompt until enterPlay() ran, freezing the
+    // game on the start screen with no visible feedback.
     this.ui.enterPlay('');
     this.ui.setPalCount(this.progress.creatures.length);
     this.ui.updatePalBook(this.progress.creatures, MEADOW_VOCAB);
+
+    // One-time mic permission probe from this user-gesture (Play tap), so any
+    // OS prompt appears at a clearly intentional moment, not mid-quest —
+    // but only if he can actually talk out loud right now. Asked fresh every
+    // session; "quiet" routes say-it-aloud straight to the tap-to-confirm
+    // fallback instead of opening the mic and waiting through a listen that
+    // was never going to hear anything.
+    this.vad = new VoiceActivityDetector();
+    this.quietSession = false;
+    if (!this.progress.settings.micDenied) {
+      const canTalk = await this.showMicCheck();
+      if (canTalk) {
+        const ok = await this.vad.primePermission();
+        if (!ok) this.progress.setSettings({ micDenied: true });
+      } else {
+        this.quietSession = true;
+      }
+    }
 
     this.showSpeechBubble('¡Hola! Soy Nube.');
     await this.clips.speakAsync('nube-hello', '¡Hola! Soy Nube.');
@@ -901,6 +918,25 @@ export class MainScene extends Phaser.Scene {
     });
   }
 
+  // ── Mic check (asked fresh every session, before Nube's greeting) ─────────
+
+  private showMicCheck(): Promise<boolean> {
+    return new Promise(resolve => {
+      const overlay  = document.getElementById('mic-check')!;
+      const yesBtn   = document.getElementById('mic-check-yes') as HTMLButtonElement;
+      const quietBtn = document.getElementById('mic-check-quiet') as HTMLButtonElement;
+      overlay.classList.remove('hidden');
+      const finish = (canTalk: boolean) => {
+        overlay.classList.add('hidden');
+        yesBtn.onclick = null;
+        quietBtn.onclick = null;
+        resolve(canTalk);
+      };
+      yesBtn.onclick   = () => finish(true);
+      quietBtn.onclick = () => finish(false);
+    });
+  }
+
   // ── Say it aloud (self-attested production step) ──────────────────────────
   //
   // Never grades pronunciation — the mic is only ever used to detect that a
@@ -911,7 +947,7 @@ export class MainScene extends Phaser.Scene {
 
   private async runSayItAloud(vocab: VocabItem): Promise<void> {
     this.clips.cancel(); // defensive — never start this prompt over a still-playing prior line
-    const skipMic = this.progress.settings.micDenied || VoiceActivityDetector.isKnownDenied || !this.vad;
+    const skipMic = this.progress.settings.micDenied || VoiceActivityDetector.isKnownDenied || !this.vad || this.quietSession;
     this.showSayItOverlay(vocab.say, skipMic);
     // Wait for Nube's own prompt to finish before listening — on speaker/mic
     // devices (no headphones), starting VAD while this plays lets Nube's own
