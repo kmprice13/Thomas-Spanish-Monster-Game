@@ -365,7 +365,7 @@ export class GameUI {
       cell.type = 'button';
       cell.innerHTML = `
         <div class="chispa-card">
-          <img src="${chispaImg(v.id)}" class="chispa-img" alt="" />
+          <img src="${chispaImg(v.id)}" class="chispa-img" alt="" loading="lazy" />
           <span class="chispa-belly">${collected ? v.es : '?'}</span>
         </div>`;
       if (collected) {

@@ -6,8 +6,9 @@ import { ProgressStore, type PlayerSize } from '../systems/ProgressStore';
 import { QuestDirector, type SpawnSpec } from '../systems/QuestDirector';
 import { SpanishVoice } from '../systems/SpanishVoice';
 import { VoiceActivityDetector } from '../systems/VoiceActivityDetector';
+import { markPlayButtonReady } from '../systems/BootPlayButton';
 import { praise, nudge, wordVisibility, maskWord } from '../content/quests';
-import { MEADOW_VOCAB } from '../content/vocabulary';
+import { MEADOW_VOCAB, UNLOCK_ORDER } from '../content/vocabulary';
 import { ACTIVE_COMMANDS, type CommandWord, type CommandAction } from '../content/commands';
 import { ICONS } from '../content/icons';
 import type { VocabItem } from '../content/vocabulary';
@@ -197,26 +198,72 @@ export class MainScene extends Phaser.Scene {
   // ── Phaser lifecycle ──────────────────────────────────────────────────────
 
   preload(): void {
-    (['apple','banana','strawberry','flower','star','ball',
-      'fish','frog','bird','butterfly','mushroom','bone',
-      'pencil','crayon','paper','book','backpack','scissors',
-      'glue','eraser','notebook','ruler',
-      'bucket','coral','crab','dolphin','jellyfish','sandcastle',
-      'seagull','seashell','turtle','wave'] as const)
-      .forEach(k => this.load.image(`vocab_${k}`, `assets/vocab_${k}.png`));
-    // Palm tree — white bg removed by process-palm-tree.mjs
-    this.load.image('palm', 'assets/palm_tree_alpha.png');
-    // Scene background
+    // Needed to decide which vocab/skin/milestones are actually reachable
+    // below — reading localStorage is side-effect-free, safe this early.
+    this.progress = new ProgressStore();
+
+    // Always needed for the very first frame (start screen + Nube greeting).
     this.load.image('bg', 'assets/bg.png');
-    // Chispa collectible creatures — one per vocab word
-    MEADOW_VOCAB.forEach(v => this.load.image(`chispa_${v.id}`, `assets/chispa_${v.id}.png`));
-    // Thomas — one hand-crafted skin per choice (free + all earned)
-    MainScene.ALL_SKIN_IDS.forEach(id => this.load.image(`thomas_${id}`, `assets/thomas_${id}.png`));
-    // Nube — colored NPC sprite + portrait for start screen
+    this.load.image('palm', 'assets/palm_tree_alpha.png');
     this.load.image('nube', 'assets/nube_base.png');
     this.load.image('nube-portrait', 'assets/nube_portrait.png');
-    // Island growth decorations (processed by scripts/process-island-elements.mjs)
-    ISLAND_MILESTONES.forEach(m => this.load.image(m.key, `assets/${m.key}.png`));
+
+    // Everything else (32 words × 2 images, 27 Thomas skins, 10 island
+    // decorations) used to load eagerly here — ~126MB before compression,
+    // and the Jugar button has no click handler until create() runs, so it
+    // sat dead until that whole download finished. Load only what THIS
+    // session can reach in the next few minutes instead; queueLazyAssets()
+    // (called from create()) fills in the rest in the background.
+    const lookahead = Math.min(this.progress.questProgress.nextUnlockIndex + 1, UNLOCK_ORDER.length);
+    UNLOCK_ORDER.slice(0, lookahead).forEach(v => {
+      this.load.image(ITEM_KEY[v.model], `assets/${ITEM_KEY[v.model]}.png`);
+      this.load.image(`chispa_${v.id}`, `assets/chispa_${v.id}.png`);
+    });
+
+    const skinId = this.progress.settings.playerColorId;
+    this.load.image(`thomas_${skinId}`, `assets/thomas_${skinId}.png`);
+
+    // +1 lookahead covers the next milestone a single catch could cross;
+    // queueLazyAssets() + the texture-existence guard in placeIslandDecos
+    // cover any further one this session reaches before that finishes.
+    ISLAND_MILESTONES
+      .filter(m => m.chispaCount <= this.progress.creatures.length + 1)
+      .forEach(m => this.load.image(m.key, `assets/${m.key}.png`));
+  }
+
+  /**
+   * Loads every asset NOT already queued by preload()'s reachable-window
+   * pass — remaining Thomas skins, not-yet-active vocab/Chispa art, and
+   * not-yet-reached island decorations — in the background. Non-blocking:
+   * gameplay never awaits this, it just makes textures exist sooner.
+   */
+  private queueLazyAssets(): void {
+    let queued = 0;
+    const want = (key: string, url: string) => {
+      if (this.textures.exists(key)) return;
+      this.load.image(key, url);
+      queued++;
+    };
+
+    UNLOCK_ORDER.forEach(v => {
+      want(ITEM_KEY[v.model], `assets/${ITEM_KEY[v.model]}.png`);
+      want(`chispa_${v.id}`, `assets/chispa_${v.id}.png`);
+    });
+    MainScene.ALL_SKIN_IDS.forEach(id => want(`thomas_${id}`, `assets/thomas_${id}.png`));
+    ISLAND_MILESTONES.forEach(m => want(m.key, `assets/${m.key}.png`));
+
+    if (queued === 0) return;
+    // Phaser defaults to 32 parallel downloads, which — over HTTP/1.1's
+    // ~6-connections-per-host cap (and even over HTTP/2, competing for the
+    // same bandwidth) — would starve the audio manifest fetch and each
+    // quest's spoken clip. Cap it so this background batch never crowds out
+    // anything gameplay actually needs mid-session.
+    this.load.maxParallelDownloads = 3;
+    // A newly-unlocked word/milestone can (rarely) outrace this background
+    // load on a slow connection — placeIslandDecos already no-ops until its
+    // texture exists, so re-running it once this batch lands self-heals.
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => this.placeIslandDecos(true));
+    this.load.start();
   }
 
   create(): void {
@@ -224,7 +271,6 @@ export class MainScene extends Phaser.Scene {
     this.sfx      = new AudioSystem();
     this.voice    = new SpanishVoice();
     this.clips    = new AudioClips(this.voice);
-    this.progress = new ProgressStore();
     this.questDir = new QuestDirector({
       npcName: 'Nube',
       alreadyCollected: this.progress.creatures,
@@ -232,6 +278,11 @@ export class MainScene extends Phaser.Scene {
       wordsForReview: () => this.progress.wordsForReview(),
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.vad?.dispose());
+    // Delayed (not fired immediately): Jugar may be tapped within a second or
+    // two of the start screen appearing, and startGame()'s own fetches (the
+    // audio manifest, Nube's greeting clip) need a clear run at the
+    // connection pool first — see the concurrency cap in queueLazyAssets().
+    this.time.delayedCall(4000, () => this.queueLazyAssets());
 
     this.ui = new GameUI({
       onPlay:       () => void this.startGame(),
@@ -292,6 +343,7 @@ export class MainScene extends Phaser.Scene {
           } }
       },
     });
+    markPlayButtonReady();
 
     const { muted, slowSpeech, reducedMotion } = this.progress.settings;
     this.sfx.setMuted(muted);
@@ -366,7 +418,7 @@ export class MainScene extends Phaser.Scene {
     nubeShadow.fillStyle(0x000000, 0.15);
     nubeShadow.fillEllipse(0, 62, 80, 18);
     this.textures.get('nube').setFilter(Phaser.Textures.FilterMode.NEAREST);
-    const nubeImg = this.add.image(0, 0, 'nube').setScale(130 / 1024);
+    const nubeImg = this.add.image(0, 0, 'nube').setDisplaySize(130, 130);
     this.nubeContainer = this.add.container(NUBE_X, NUBE_Y, [nubeShadow, nubeImg]);
     this.nubeContainer.setDepth(10);
 
@@ -1376,7 +1428,9 @@ export class MainScene extends Phaser.Scene {
   // One-time reveal of the newly caught Chispa — a brief "here's who you got"
   // moment, not a persistent island resident (that felt too crowded).
   private revealHatchedChispa(vocabId: string, x: number, y: number): void {
-    const sprite = this.add.image(x, y, `chispa_${vocabId}`).setDisplaySize(70, 62).setDepth(25);
+    const key = `chispa_${vocabId}`;
+    if (!this.textures.exists(key)) return; // background load hasn't landed yet — skip the flourish, not core gameplay
+    const sprite = this.add.image(x, y, key).setDisplaySize(70, 62).setDepth(25);
     const targetScaleX = sprite.scaleX;
     const targetScaleY = sprite.scaleY;
     sprite.setScale(0);
@@ -1520,7 +1574,7 @@ export class MainScene extends Phaser.Scene {
   private placeIslandDecos(animate: boolean): void {
     const count = this.progress.creatures.length;
     ISLAND_MILESTONES.forEach((m, i) => {
-      if (m.chispaCount > count || this.islandDecos[i]) return;
+      if (m.chispaCount > count || this.islandDecos[i] || !this.textures.exists(m.key)) return;
       const img = this.add.image(m.x, m.y, m.key).setDisplaySize(m.w, m.h).setDepth(m.depth);
       this.islandDecos[i] = img;
       if (animate) {
