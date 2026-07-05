@@ -15,10 +15,13 @@ const chispaImg = (id: string) => `assets/chispa_${id}.png`;
 
 // ── Color / skin definitions — single source of truth for the customizer ──────
 const FREE_COLORS = [
-  { id: 'menta',   label: 'Menta',   css: '#44d9a0' },
-  { id: 'morado',  label: 'Morado',  css: '#b06cff' },
-  { id: 'azul',    label: 'Azul',    css: '#4d8cff' },
-  { id: 'naranja', label: 'Naranja', css: '#ff6b35' },
+  { id: 'menta',    label: 'Menta',    css: '#44d9a0' },
+  { id: 'morado',   label: 'Morado',   css: '#b06cff' },
+  { id: 'azul',     label: 'Azul',     css: '#4d8cff' },
+  { id: 'naranja',  label: 'Naranja',  css: '#ff6b35' },
+  { id: 'verde',    label: 'Verde',    css: '#4caf50' },
+  { id: 'turquesa', label: 'Turquesa', css: '#2ec5c1' },
+  { id: 'rosa',     label: 'Rosa',     css: '#c23b8f' },
 ] as const;
 
 // Alphabetical by label (Spanish) — also gives the customizer grid a clean,
@@ -46,6 +49,16 @@ const EARNED_COLORS = [
   { id: 'shark',       label: 'Tiburón',       css: '#607d8b', cost: 10 },
 ] as const;
 
+// Free, always available — Thomas asked to be able to be as big as (or
+// bigger than) Nube, not just a fixed size. Scale ratios mirror the actual
+// in-game pixel sizes (PLAYER_SIZE_DIMS in MainScene.ts) so the customizer
+// preview matches what he'll actually look like on the island.
+const SIZES = [
+  { id: 'pequeno', label: 'Pequeño', previewScale: 0.75 },
+  { id: 'normal',  label: 'Normal',  previewScale: 1 },
+  { id: 'grande',  label: 'Grande',  previewScale: 1.25 },
+] as const;
+
 export interface UICallbacks {
   onPlay: () => void;
   onReplay: () => void;
@@ -55,6 +68,7 @@ export interface UICallbacks {
   onColorChange: (id: string) => void;
   onColorPreview: (id: string) => void; // swap Thomas texture for try-on without saving
   onColorUnlock: (id: string, cost: number) => void;
+  onSizeChange: (id: string) => void;
   onParentDashboardOpen: () => void;
 }
 
@@ -78,7 +92,6 @@ export class GameUI {
 
   private bannerTimer = 0;
   private toastTimer = 0;
-  private gateAnswer = 0;
   private onColorChange!: (id: string) => void;
   private onColorPreview!: (id: string) => void;
   private onColorUnlock!: (id: string, cost: number) => void;
@@ -130,6 +143,19 @@ export class GameUI {
     this.onColorUnlock = cbs.onColorUnlock;
     this.onParentDashboardOpen = cbs.onParentDashboardOpen;
 
+    // Size row — free and always unlocked, so it's built once, not rebuilt
+    // per-coin-balance like the color grid.
+    const sizeRow = this.q('#customizer-size');
+    SIZES.forEach(({ id, label }) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'size-pill';
+      btn.dataset.sizeid = id;
+      btn.textContent = label;
+      btn.addEventListener('click', () => cbs.onSizeChange(id));
+      sizeRow.appendChild(btn);
+    });
+
     // Coin chip opens customizer
     this.q('#coin-chip').addEventListener('click', () => this.open('customizer'));
 
@@ -165,12 +191,23 @@ export class GameUI {
     this.palButton.querySelector('.hud-chip__icon')!.innerHTML = n > 0 ? ICONS.sparkle : ICONS.egg;
   }
 
-  applySettings(muted: boolean, slow: boolean, calm: boolean, playerColorId?: string): void {
+  applySettings(muted: boolean, slow: boolean, calm: boolean, playerColorId?: string, playerSize?: string): void {
     this.setSound.checked = !muted;
     this.setSlow.checked = slow;
     this.setCalm.checked = calm;
     document.body.classList.toggle('calm', calm);
     if (playerColorId !== undefined) this.updateCustomizerSelection(playerColorId);
+    if (playerSize !== undefined) this.updateSizeSelection(playerSize);
+  }
+
+  /** Highlight the active size pill and scale the preview image to match. */
+  updateSizeSelection(id: string): void {
+    document.querySelectorAll<HTMLElement>('#customizer-size .size-pill').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.sizeid === id);
+    });
+    const preview = document.getElementById('customizer-thomas') as HTMLImageElement | null;
+    const scale = SIZES.find(s => s.id === id)?.previewScale ?? 1;
+    if (preview) preview.style.transform = `scale(${scale})`;
   }
 
   /** Build the customizer orb grid. Call after progress loads or after an unlock. */
@@ -224,6 +261,15 @@ export class GameUI {
           this.onColorPreview(id);
           this.updateCustomizerSelection(id);
           this.showConfirmBar(cost);
+        });
+      } else {
+        // Still needs a handler even though it can't be bought — otherwise
+        // tapping it does nothing at all, which just looks broken instead
+        // of "you don't have enough coins yet."
+        btn.addEventListener('click', () => {
+          btn.classList.add('shake');
+          setTimeout(() => btn.classList.remove('shake'), 400);
+          this.showToast(ICONS.coin, `Necesitas ${cost} monedas para este color`);
         });
       }
       return btn;
@@ -417,37 +463,27 @@ export class GameUI {
     `;
   }
 
-  /** Simple arithmetic gate before the parent dashboard — keeps kids out. */
+  /** Honor-system gate before the parent dashboard — Thomas answers truthfully. */
   private openParentGate(): void {
-    const a = 2 + Math.floor(Math.random() * 8);
-    const b = 2 + Math.floor(Math.random() * 8);
-    this.gateAnswer = a + b;
-
-    const wrong1 = this.gateAnswer + 1 + Math.floor(Math.random() * 3);
-    const wrong2 = this.gateAnswer - 1 - Math.floor(Math.random() * 3);
-
-    const opts = [this.gateAnswer, wrong1, Math.max(1, wrong2)]
-      .sort(() => Math.random() - 0.5);
-
-    this.q('#gate-question').textContent = `What is ${a} + ${b}?`;
+    this.q('#gate-question').textContent = 'Are you an adult?';
     const answers = this.q('#gate-answers');
     answers.innerHTML = '';
-    for (const n of opts) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.textContent = String(n);
-      btn.addEventListener('click', () => {
-        if (Number(btn.textContent) === this.gateAnswer) {
-          this.close('parent-gate');
-          this.open('parent-dashboard');
-          this.onParentDashboardOpen();
-        } else {
-          btn.style.background = '#ffe1e6';
-          setTimeout(() => { btn.style.background = ''; }, 600);
-        }
-      });
-      answers.appendChild(btn);
-    }
+
+    const yes = document.createElement('button');
+    yes.type = 'button';
+    yes.textContent = 'Yes';
+    yes.addEventListener('click', () => {
+      this.close('parent-gate');
+      this.open('parent-dashboard');
+      this.onParentDashboardOpen();
+    });
+
+    const no = document.createElement('button');
+    no.type = 'button';
+    no.textContent = 'No';
+    no.addEventListener('click', () => this.close('parent-gate'));
+
+    answers.append(yes, no);
     this.open('parent-gate');
   }
 

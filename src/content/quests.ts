@@ -78,6 +78,33 @@ export function nudge(index: number): string {
   return NUDGE_LINES[index % NUDGE_LINES.length];
 }
 
+/**
+ * The printed word is a training wheel for a well-established reader
+ * transferring print-to-sound skill from English — it should come off once
+ * a word is drilled enough that recall should be happening by ear, not by
+ * reading the answer during the quiz.
+ */
+export type WordVisibility = 'full' | 'partial' | 'hidden';
+
+const PARTIAL_AFTER_PLAYS = 10;
+const HIDDEN_AFTER_PLAYS = 20;
+
+export function wordVisibility(timesPlayed: number): WordVisibility {
+  if (timesPlayed > HIDDEN_AFTER_PLAYS) return 'hidden';
+  if (timesPlayed > PARTIAL_AFTER_PLAYS) return 'partial';
+  return 'full';
+}
+
+/** "manzana" -> "m--z--a" — keeps every 3rd letter per word as a light
+ * scaffold, not a giveaway. Restarts the pattern at each space so a leading
+ * article ("la"/"el") doesn't shift which letters of the noun stay visible. */
+export function maskWord(text: string): string {
+  return text
+    .split(' ')
+    .map((word) => word.split('').map((ch, i) => (i % 3 === 0 ? ch : '-')).join(''))
+    .join(' ');
+}
+
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }

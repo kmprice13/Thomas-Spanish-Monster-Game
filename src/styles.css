@@ -338,7 +338,7 @@ body {
 }
 
 .panel--wide {
-  width: min(560px, 100%);
+  width: min(720px, 100%);
 }
 
 .panel__head {
@@ -756,7 +756,7 @@ body {
 .color-orbs {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 14px 4px;
+  gap: 18px 10px;
   margin-bottom: 4px;
 }
 
@@ -797,11 +797,27 @@ body {
   font-size: 0.8rem;
   font-weight: 700;
   color: var(--ink);
+  max-width: 78px;
+  text-align: center;
+  line-height: 1.15;
+  /* Long names (Alienígena, Prehistórico) must wrap onto a 2nd line instead
+     of overflowing past this cell into the next column's label. */
+  overflow-wrap: break-word;
 }
 
 .color-orb.locked {
   cursor: default;
   opacity: 0.5;
+}
+
+.color-orb.shake {
+  animation: orb-shake 0.4s ease;
+}
+
+@keyframes orb-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-4px); }
+  40%, 80% { transform: translateX(4px); }
 }
 
 .color-orb.locked .color-orb__circle {
@@ -845,6 +861,38 @@ body {
   font-weight: 800;
   color: #7a6e88;
   margin: 4px 0 16px;
+}
+
+.size-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.size-pill {
+  padding: 8px 16px;
+  border: 3px solid #d4a84a;
+  border-radius: var(--px);
+  background: #fffaee;
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.95rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #a07020;
+  transition: transform 0.06s, box-shadow 0.06s;
+}
+
+.size-pill:active {
+  transform: translateY(3px);
+  box-shadow: 0 0 0 #a07020;
+}
+
+.size-pill.active {
+  background: var(--grass);
+  border-color: #2a5a00;
+  color: #fff;
+  box-shadow: 0 3px 0 #2a5a00;
 }
 
 .customizer-confirm {
@@ -943,7 +991,7 @@ body {
 /* ====================== Parent gate ====================== */
 .gate-answers {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
   margin-top: 12px;
 }

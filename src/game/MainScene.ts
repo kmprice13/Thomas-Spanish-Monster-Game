@@ -2,11 +2,11 @@ import Phaser from 'phaser';
 import { AudioSystem } from '../systems/AudioSystem';
 import { AudioClips } from '../systems/AudioClips';
 import { GameUI } from '../systems/GameUI';
-import { ProgressStore } from '../systems/ProgressStore';
+import { ProgressStore, type PlayerSize } from '../systems/ProgressStore';
 import { QuestDirector, type SpawnSpec } from '../systems/QuestDirector';
 import { SpanishVoice } from '../systems/SpanishVoice';
 import { VoiceActivityDetector } from '../systems/VoiceActivityDetector';
-import { praise, nudge } from '../content/quests';
+import { praise, nudge, wordVisibility, maskWord } from '../content/quests';
 import { MEADOW_VOCAB } from '../content/vocabulary';
 import { ACTIVE_COMMANDS, type CommandWord, type CommandAction } from '../content/commands';
 import { ICONS } from '../content/icons';
@@ -50,6 +50,14 @@ const NUBE_X         = 400;
 const NUBE_Y         = 240;   // ISLAND_CY - 135
 const PLAYER_START_X = 400;
 const PLAYER_START_Y = 360;   // ISLAND_CY - 15
+// Nube renders at a fixed 130x130 (see nubeImg.setScale below) — 'normal' is
+// already about the same height as her; 'grande' lets Thomas choose to be
+// clearly bigger than her, per his own request. 'pequeno' is just for fun.
+const PLAYER_SIZE_DIMS: Record<PlayerSize, { w: number; h: number }> = {
+  pequeno: { w: 90,  h: 98 },
+  normal:  { w: 120, h: 130 },
+  grande:  { w: 150, h: 163 },
+};
 const SIMON_THOMAS_X = 540;   // Nube Says "stage" spot — clear of the tile grid at the bottom
 const SIMON_THOMAS_Y = 235;
 const PLAYER_SPEED   = 160;   // px/s
@@ -106,8 +114,13 @@ export class MainScene extends Phaser.Scene {
   private nubePulseRing!: Phaser.GameObjects.Graphics; // pulsing ring under Nube during give quest
   private deliveryArrow!: Phaser.GameObjects.Graphics; // bouncing directional arrow → Nube during carry
   private playerImg!: Phaser.GameObjects.Image;
-  private playerNatScaleX = 1; // natural scaleX set by setDisplaySize(120,130) — captured once
+  private playerNatScaleX = 1; // natural scaleX set by setDisplaySize — captured once per size change
   private playerNatScaleY = 1;
+  // Ratio of current player height to the 'normal' size — scales every fixed
+  // pixel offset that assumes his old 130px height (shadow, carry icon,
+  // delivery arrow, coin popup) so they still land in the right spot at
+  // 'pequeno'/'grande'.
+  private playerScaleRatio = 1;
   private playerShadow!: Phaser.GameObjects.Graphics;
   private coinPending = 0; // fractional coin accumulator for progressive earn rate
   private islandDecos: (Phaser.GameObjects.Image | null)[] = [];
@@ -174,7 +187,7 @@ export class MainScene extends Phaser.Scene {
 
   private static readonly ALL_SKIN_IDS = [
     // Free
-    'menta', 'morado', 'azul', 'naranja',
+    'menta', 'morado', 'azul', 'naranja', 'verde', 'turquesa', 'rosa',
     // Earned
     'alien', 'baby', 'cloud', 'hada', 'ghost', 'brillante', 'island',
     'origami', 'paint', 'pastel', 'pharaon', 'pirate', 'plushie',
@@ -242,12 +255,19 @@ export class MainScene extends Phaser.Scene {
       },
       onCalmChange: (c) => { this.progress.setSettings({ reducedMotion: c }); },
       onColorPreview: (id) => {
-        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`).setDisplaySize(120, 130);
+        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`);
+        this.applyPlayerSize(this.progress.settings.playerSize);
       },
       onColorChange: (id) => {
         this.progress.setSettings({ playerColorId: id });
-        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`).setDisplaySize(120, 130);
+        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`);
+        this.applyPlayerSize(this.progress.settings.playerSize);
         this.ui.updateCustomizerSelection(id);
+      },
+      onSizeChange: (size) => {
+        this.progress.setSettings({ playerSize: size as PlayerSize });
+        this.applyPlayerSize(size as PlayerSize);
+        this.ui.updateSizeSelection(size);
       },
       onParentDashboardOpen: () => {
         this.ui.updateDashboard(this.progress.parentSummary());
@@ -257,7 +277,8 @@ export class MainScene extends Phaser.Scene {
         const isFirst = this.progress.unlockedColors.length === 0;
         this.progress.unlockColor(id);
         this.progress.setSettings({ playerColorId: id });
-        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`).setDisplaySize(120, 130);
+        if (this.playerImg) this.playerImg.setTexture(`thomas_${id}`);
+        this.applyPlayerSize(this.progress.settings.playerSize);
         this.ui.buildCustomizer(this.progress.unlockedColors, id, this.progress.coins);
         this.ui.updateCoins(this.progress.coins);
         { const nsx = this.playerNatScaleX, nsy = this.playerNatScaleY;
@@ -276,7 +297,7 @@ export class MainScene extends Phaser.Scene {
     this.sfx.setMuted(muted);
     this.clips.setMuted(muted);
     if (slowSpeech) { this.voice.setBaseRate(0.72); this.clips.setRate(0.72); }
-    this.ui.applySettings(muted, slowSpeech, reducedMotion, this.progress.settings.playerColorId);
+    this.ui.applySettings(muted, slowSpeech, reducedMotion, this.progress.settings.playerColorId, this.progress.settings.playerSize);
     this.ui.buildCustomizer(this.progress.unlockedColors, this.progress.settings.playerColorId, this.progress.coins);
     this.ui.updateCoins(this.progress.coins);
 
@@ -365,8 +386,6 @@ export class MainScene extends Phaser.Scene {
     // Shadow is a standalone object (not a container child) so the container's
     // bounds are derived purely from the Image, giving Phaser reliable culling (#20)
     this.playerShadow = this.add.graphics().setDepth(21);
-    this.playerShadow.fillStyle(0x000000, 0.15);
-    this.playerShadow.fillEllipse(0, 0, 80, 18);
     // Apply NEAREST filter to every Thomas skin so runtime swaps stay crisp
     MainScene.ALL_SKIN_IDS.forEach(id => {
       this.textures.get(`thomas_${id}`).setFilter(Phaser.Textures.FilterMode.NEAREST);
@@ -374,14 +393,13 @@ export class MainScene extends Phaser.Scene {
     const skinId = this.progress.settings.playerColorId;
     // Plain Image — no Container wrapper — gives Phaser unambiguous displayWidth/Height for culling (#20)
     this.playerImg = this.add.image(PLAYER_START_X, PLAYER_START_Y, `thomas_${skinId}`)
-      .setDisplaySize(120, 130)
       .setDepth(22);
-    this.playerNatScaleX = this.playerImg.scaleX;
-    this.playerNatScaleY = this.playerImg.scaleY;
 
     // Carry icon — floats above Thomas during give quests, hidden otherwise
-    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y - 90, 'vocab_apple')
+    this.carryIcon = this.add.image(PLAYER_START_X, PLAYER_START_Y, 'vocab_apple')
       .setDisplaySize(44, 39).setDepth(23).setVisible(false);
+
+    this.applyPlayerSize(this.progress.settings.playerSize);
 
     // Pulse ring under Nube — visible during give quest carry phase
     this.nubePulseRing = this.add.graphics().setDepth(9);
@@ -656,7 +674,7 @@ export class MainScene extends Phaser.Scene {
       this.playerImg.x = this.playerX;
       this.playerImg.y = bobY;
       if (!this.playerImg.visible) this.playerImg.setVisible(true);
-      this.playerShadow.setPosition(this.playerX, bobY + 65);
+      this.playerShadow.setPosition(this.playerX, bobY + 65 * this.playerScaleRatio);
     }
 
     // ── Quest interaction (playing phase) ────────────────────────────────
@@ -690,7 +708,7 @@ export class MainScene extends Phaser.Scene {
       // Keep carry icon above Thomas and pulse ring under Nube in sync
       this.carryIcon.setVisible(isCarrying);
       if (isCarrying) {
-        this.carryIcon.setPosition(this.playerX, this.playerY - 88 + Math.sin(this.elapsed * 4) * 4);
+        this.carryIcon.setPosition(this.playerX, this.playerY - 88 * this.playerScaleRatio + Math.sin(this.elapsed * 4) * 4);
       }
       this.nubePulseRing.setVisible(isCarrying);
       if (isCarrying) {
@@ -707,7 +725,7 @@ export class MainScene extends Phaser.Scene {
         const angle = Math.atan2(dy, dx);
         const bounce = Math.sin(this.elapsed * 6) * 3;
         const ax = this.playerX + Math.cos(angle) * bounce;
-        const ay = this.playerY - 114 + Math.sin(angle) * bounce;
+        const ay = this.playerY - 114 * this.playerScaleRatio + Math.sin(angle) * bounce;
         const r = 11;
         this.deliveryArrow.clear();
         this.deliveryArrow.fillStyle(0xffe66d, 0.95);
@@ -1037,7 +1055,16 @@ export class MainScene extends Phaser.Scene {
     const bubbleText = quest.kind === 'color' && quest.color
       ? `${quest.target.say} ${quest.target.article === 'la' ? quest.color.esFem : quest.color.es}`
       : quest.target.say;
-    this.showSpeechBubble(bubbleText);
+
+    // Printed word fades out as this word gets drilled — full text at first,
+    // partially masked after 10 plays, gone entirely after 20, so recall
+    // shifts from reading to listening as he gets better at the word.
+    const timesPlayed = this.progress.recordWordPlayed(quest.target.id);
+    switch (wordVisibility(timesPlayed)) {
+      case 'full':    this.showSpeechBubble(bubbleText); break;
+      case 'partial': this.showSpeechBubble(maskWord(bubbleText)); break;
+      case 'hidden':  this.hideSpeechBubble(); break;
+    }
     const onEnd = () => {
       if (this.phase === 'speaking') {
         this.phase = 'playing';
@@ -1237,7 +1264,7 @@ export class MainScene extends Phaser.Scene {
     this.coinPending -= whole;
     this.progress.earnCoins(whole);
     this.ui.updateCoins(this.progress.coins);
-    const txt = this.add.text(this.playerX, this.playerY - 80, `+${whole} 🪙`, {
+    const txt = this.add.text(this.playerX, this.playerY - 80 * this.playerScaleRatio, `+${whole} 🪙`, {
       fontSize: '26px',
       fontFamily: '"Fredoka", system-ui, sans-serif',
       color: '#ffd700',
@@ -1324,11 +1351,11 @@ export class MainScene extends Phaser.Scene {
     eggGfx.lineStyle(4, 0x120d1a, 1);
     eggGfx.fillEllipse(0, 0, 38, 48);
     eggGfx.strokeEllipse(0, 0, 38, 48);
-    const egg = this.add.container(this.playerX, this.playerY - 30, [eggGfx]);
+    const egg = this.add.container(this.playerX, this.playerY - 30 * this.playerScaleRatio, [eggGfx]);
     egg.setDepth(25);
     this.tweens.add({
       targets: egg,
-      y: this.playerY - 90,
+      y: this.playerY - 90 * this.playerScaleRatio,
       scaleX: 1.3, scaleY: 1.3,
       alpha: 0,
       duration: 700,
@@ -1464,6 +1491,28 @@ export class MainScene extends Phaser.Scene {
     });
   }
 
+  // ── Player size ────────────────────────────────────────────────────────────
+
+  /**
+   * Resizes Thomas and every fixed pixel offset built around his old 130px
+   * height (shadow footprint, carry icon, delivery arrow) so 'pequeno'/
+   * 'grande' still look right, not just resized with everything else in the
+   * wrong spot relative to him.
+   */
+  private applyPlayerSize(size: PlayerSize): void {
+    const { w, h } = PLAYER_SIZE_DIMS[size];
+    this.playerImg.setDisplaySize(w, h);
+    this.playerNatScaleX = this.playerImg.scaleX;
+    this.playerNatScaleY = this.playerImg.scaleY;
+    this.playerScaleRatio = h / PLAYER_SIZE_DIMS.normal.h;
+
+    this.playerShadow.clear();
+    this.playerShadow.fillStyle(0x000000, 0.15);
+    this.playerShadow.fillEllipse(0, 0, 80 * this.playerScaleRatio, 18 * this.playerScaleRatio);
+
+    if (!this.carryIcon.visible) this.carryIcon.setPosition(this.playerX, this.playerY - 88 * this.playerScaleRatio);
+  }
+
   // ── Nube Says (Simon) ─────────────────────────────────────────────────────
 
   private async runSimonInterlude(): Promise<void> {
@@ -1506,7 +1555,7 @@ export class MainScene extends Phaser.Scene {
         onUpdate: () => {
           this.playerX = this.playerImg.x;
           this.playerY = this.playerImg.y;
-          this.playerShadow.setPosition(this.playerImg.x, this.playerImg.y + 65);
+          this.playerShadow.setPosition(this.playerImg.x, this.playerImg.y + 65 * this.playerScaleRatio);
         },
         onComplete: () => resolve(),
       });

@@ -31,11 +31,14 @@ const DAY_MS = 86_400_000;
 const FAST_MS  = 2_500;
 const SLOW_MS  = 6_000;
 
+export type PlayerSize = 'pequeno' | 'normal' | 'grande';
+
 export interface GameSettings {
   reducedMotion: boolean;
   muted: boolean;
   slowSpeech: boolean;
   playerColorId: string; // skin id, e.g. 'azul', 'pirata', 'arcoiris'
+  playerSize: PlayerSize;
   micDenied: boolean; // mic permission was denied/unavailable; stop re-prompting
 }
 
@@ -59,7 +62,7 @@ interface Attempt {
 export interface WordRecord {
   vocabId: string;
   introduced: boolean;   // has Nube done the intro sequence?
-  exposures: number;     // times shown via intro
+  exposures: number;     // times the quest command was spoken (intro + every regular round)
   srs: SRSState;
   attempts: Attempt[];
   correctCount: number;
@@ -165,7 +168,7 @@ function defaultData(): ProgressData {
     creatures: [],
     unlockedColors: [],
     coins: 0,
-    settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColorId: 'azul', micDenied: false },
+    settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColorId: 'azul', playerSize: 'normal', micDenied: false },
     questProgress: { nextUnlockIndex: INITIAL_ACTIVE, completed: 0 },
   };
 }
@@ -294,6 +297,19 @@ export class ProgressStore {
   /** How many words have had their first-encounter sequence so far. */
   introducedCount(): number {
     return Object.values(this.data.words).filter((w) => w.introduced).length;
+  }
+
+  /**
+   * Records that this word's quest command was spoken this round and returns
+   * the running play count (the first-encounter exposure counts as play #1).
+   * Used to fade the printed word out as Thomas should be recalling it by
+   * ear rather than reading it — see wordVisibility() in content/quests.ts.
+   */
+  recordWordPlayed(vocabId: string): number {
+    const w = this.word(vocabId);
+    w.exposures += 1;
+    this.scheduleSave();
+    return w.exposures;
   }
 
   // ── Attempt recording ──
