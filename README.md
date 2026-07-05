@@ -22,26 +22,15 @@ npm run test:ui         # playwright tests
 
 ## Deployment
 
-The production build is a static site (no backend, no runtime env vars) served from a container via nginx.
+The production build is a static site (no backend, no runtime env vars) served by nginx in a container.
 
 **Files:**
 - `Dockerfile` — multi-stage build: Node 22 runs `npm run build`, then `nginx:1.27-alpine` serves the resulting `dist/`
-- `nginx.conf` — SPA fallback routing + long-cache headers for hashed build assets
-- `docker-compose.yml` — publishes the container on `127.0.0.1:8091` by default
+- `nginx.conf` — SPA fallback routing, `no-cache` on the shell, immutable caching for hashed bundles only
+- `.github/workflows/docker.yml` — builds and pushes `ghcr.io/kmprice13/thomas-spanish-monster-game` on every push to `main`
 
-### Deploying via Portainer
+This repo only owns the image. The deployment to wagyu lives in the `tfp1/homelab` repo (the GitOps source of truth for its Portainer stacks): `stacks/islamonstruo/docker-compose.yml` pulls the GHCR image onto Caddy's docker network, and `caddy/Caddyfile` routes `http://islamonstruo.tfp.pizza` to it. The existing `*.tfp.pizza` wildcard (Cloudflare DNS + tunnel ingress to Caddy) already covers the subdomain, so a deploy needs no Cloudflare changes.
 
-1. Stacks → Add stack → **Repository**, pointing at this repo (`https://github.com/kmprice13/Thomas-Spanish-Monster-Game`), compose path `docker-compose.yml`, branch `main`. Deploy.
-2. Add a Caddy route:
-
-   ```
-   islamonstruo.tfp.pizza {
-       reverse_proxy 127.0.0.1:8091
-   }
-   ```
-
-   If Caddy runs in Docker on a shared network instead of proxying to a host port, edit `docker-compose.yml`: remove the `ports` mapping, uncomment the `networks` blocks, set the network name, and route Caddy to `islamonstruo:80` instead.
-3. Add `islamonstruo.tfp.pizza` as a public hostname in the Cloudflare Tunnel config, routed the same way as other `tfp.pizza` subdomains.
-4. Reload Caddy.
+One-time setup after the first image publish: flip the GHCR package to public (repo → Packages → package settings) so wagyu can pull it unauthenticated.
 
 No environment variables or secrets are needed at runtime — ElevenLabs credentials are only used at build/asset-generation time by `scripts/generate-audio.mjs`, and the resulting audio files are already static assets under `public/audio`.

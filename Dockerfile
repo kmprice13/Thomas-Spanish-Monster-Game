@@ -3,7 +3,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
+# drop sourcemaps (9.6M) — debug-only, shouldn't be served publicly
+RUN npm run build && rm -f dist/assets/*.map
 
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/conf.d/default.conf
