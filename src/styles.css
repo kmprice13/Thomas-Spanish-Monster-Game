@@ -106,8 +106,10 @@ body {
   pointer-events: auto;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  min-height: 52px;
+  height: 60px;
+  min-width: 60px;
   padding: 0 14px;
   border: 3px solid var(--border);
   border-radius: var(--px);
@@ -136,7 +138,8 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 8px 10px 8px 20px;
+  height: 60px;
+  padding: 0 10px 0 20px;
   border: 3px solid var(--border);
   border-radius: var(--px);
   background: var(--cream);
@@ -151,8 +154,8 @@ body {
 #replay-button {
   pointer-events: auto;
   position: relative;
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   border: 3px solid #1a8a85;
   border-radius: var(--px);
   background: var(--teal);
@@ -385,40 +388,72 @@ body {
   margin-top: 14px;
 }
 
-/* ====================== Start screen ====================== */
-.start-card {
-  text-align: center;
-  padding: 32px 24px;
-  border: 3px solid var(--border);
-  border-radius: 14px;
-  background: var(--cream);
-  box-shadow: 6px 8px 0 var(--border);
+/* ====================== Start screen / hub ====================== */
+.overlay--hub {
+  background: #cdeeff;
+  backdrop-filter: none;
+  padding: 12px;
+  flex-direction: column;
+  gap: 6px;
 }
 
-.start-nube {
-  width: 140px;
-  height: auto;
-  animation: bob 2.2s ease-in-out infinite;
-  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.18));
+.hub-frame {
+  position: relative;
+  width: min(100%, calc(100dvh * 1450 / 1085));
+  aspect-ratio: 1450 / 1085;
 }
 
-@keyframes bob {
-  0%, 100% { transform: translateY(0) rotate(-3deg); }
-  50% { transform: translateY(-10px) rotate(3deg); }
+.hub-bg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 10px;
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
 
-.start-title {
-  margin: 6px 0 0;
-  font-size: clamp(2.4rem, 9vw, 3.4rem);
-  color: var(--coral);
-  text-shadow: 0 4px 0 var(--sun), 0 7px 0 rgba(180, 60, 0, 0.18);
-  letter-spacing: -0.01em;
-}
-
-.start-sub {
-  margin: 2px 0 22px;
-  color: #7a6e88;
+.hub-hotspot {
+  position: absolute;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  color: var(--ink);
   font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.hub-hotspot--locked {
+  cursor: not-allowed;
+}
+
+.hub-hotspot.shake {
+  animation: hub-shake 0.4s;
+}
+
+@keyframes hub-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
+}
+
+#hub-mute-button.muted::after {
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 48%;
+  height: 4px;
+  background: #d1445a;
+  border-radius: 2px;
+  transform: rotate(-35deg);
+}
+
+.hub-voice-note {
+  font-size: 0.8rem;
+  color: #5a7a8f;
+  min-height: 1em;
+  text-align: center;
 }
 
 .big-button {
@@ -465,13 +500,6 @@ body {
 .secondary-button:active {
   transform: translateY(5px);
   box-shadow: 0 0 0 #a09080;
-}
-
-.start-note {
-  margin-top: 16px;
-  font-size: 0.85rem;
-  color: #9a8fa8;
-  min-height: 1em;
 }
 
 /* ====================== Pal book ====================== */

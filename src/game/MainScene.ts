@@ -285,7 +285,8 @@ export class MainScene extends Phaser.Scene {
     this.time.delayedCall(4000, () => this.queueLazyAssets());
 
     this.ui = new GameUI({
-      onPlay:       () => void this.startGame(),
+      onPlay:       () => this.handlePlayTap(),
+      onHome:       () => this.goHome(),
       onReplay:     () => {
         this.sfx.play('tap');
         const q = this.questDir.quest;
@@ -850,6 +851,24 @@ export class MainScene extends Phaser.Scene {
   }
 
   // ── Game start ────────────────────────────────────────────────────────────
+
+  /** Jugar tap — first time ever, run the full intro; otherwise just resume. */
+  private handlePlayTap(): void {
+    if (this.phase === 'start') {
+      void this.startGame();
+    } else {
+      // Already in progress (Thomas went Home and came back) — replaying
+      // startGame() here would re-show the mic-check, replay Nube's
+      // greeting, and start a brand-new quest, discarding where he was.
+      this.ui.enterPlay('');
+    }
+  }
+
+  /** Home chip — back to the hub. Doesn't touch phase/quest state, so Jugar resumes exactly here. */
+  private goHome(): void {
+    this.clips.cancel();
+    this.ui.goHome();
+  }
 
   private async startGame(): Promise<void> {
     await this.clips.init();

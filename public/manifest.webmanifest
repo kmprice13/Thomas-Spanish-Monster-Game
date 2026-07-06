@@ -1,7 +1,7 @@
 {
-  "name": "Isla Monstruo",
-  "short_name": "IslaMonstruo",
-  "description": "Spanish Monster Island — learn Spanish through play",
+  "name": "Thomas's Island",
+  "short_name": "ThomasIsland",
+  "description": "Thomas's Island — a hub of learning games, including Isla Monstruo (Spanish)",
   "start_url": "/",
   "display": "fullscreen",
   "orientation": "any",

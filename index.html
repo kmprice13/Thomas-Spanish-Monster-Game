@@ -11,12 +11,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Bubblegum+Sans&family=Fredoka:wght@300..700&display=swap" rel="stylesheet" />
-    <title>Isla Monstruo — Spanish Monster Island</title>
+    <title>Thomas's Island</title>
   </head>
   <body>
     <main id="app">
       <!-- ============================ Gameplay HUD ============================ -->
       <section id="hud" class="hidden" aria-live="polite">
+        <button id="home-chip" class="hud-chip" type="button" aria-label="Back to Thomas's Island">←</button>
         <button id="pal-button" class="hud-chip" type="button" aria-label="My monster pals">
           <span class="hud-chip__icon" data-icon="egg"></span><span id="pal-count" class="hud-chip__count">0</span>
         </button>
@@ -91,15 +92,18 @@
       </div>
 
       <!-- ============================ Start screen ============================ -->
-      <div id="start-screen" class="overlay">
-        <div class="start-card">
-          <img src="assets/nube_portrait.png" class="start-nube" alt="Nube" />
-          <h1 class="start-title">Isla&nbsp;Monstruo</h1>
-          <p class="start-sub">Spanish Monster Island</p>
-          <button id="play-button" class="big-button" type="button">▶&nbsp;Jugar</button>
-          <button id="customizer-button" class="secondary-button" type="button"><span class="icon" data-icon="palette"></span> Personalizar a Thomas</button>
-          <p id="voice-note" class="start-note"></p>
+      <div id="start-screen" class="overlay overlay--hub">
+        <div class="hub-frame">
+          <img src="assets/hub_background.png" alt="Thomas's Island — choose a game" class="hub-bg" draggable="false" />
+          <button id="play-button" class="hub-hotspot" type="button" aria-label="Isla Monstruo" style="left:12%; top:27%; width:29%; height:31%;"></button>
+          <button id="find-mistake-button" class="hub-hotspot" type="button" aria-label="Find the Mistake" style="left:59%; top:27%; width:29%; height:31%;"></button>
+          <button id="customizer-button" class="hub-hotspot" type="button" aria-label="Customize" style="left:37%; top:53%; width:26%; height:29%;"></button>
+          <button id="hub-soon-left" class="hub-hotspot hub-hotspot--locked" type="button" aria-label="Coming soon" style="left:10%; top:60%; width:27%; height:25%;"></button>
+          <button id="hub-soon-right" class="hub-hotspot hub-hotspot--locked" type="button" aria-label="Coming soon" style="left:63%; top:60%; width:27%; height:25%;"></button>
+          <button id="hub-settings-button" class="hub-hotspot" type="button" aria-label="Settings" style="left:80%; top:2%; width:8%; height:9%;"></button>
+          <button id="hub-mute-button" class="hub-hotspot" type="button" aria-label="Toggle sound" style="left:89%; top:2%; width:8%; height:9%;"></button>
         </div>
+        <p id="voice-note" class="hub-voice-note"></p>
       </div>
 
       <!-- ============================ Customizer ============================ -->

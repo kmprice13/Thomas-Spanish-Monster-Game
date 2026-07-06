@@ -61,6 +61,7 @@ const SIZES = [
 
 export interface UICallbacks {
   onPlay: () => void;
+  onHome: () => void;
   onReplay: () => void;
   onMuteChange: (muted: boolean) => void;
   onSlowChange: (slow: boolean) => void;
@@ -104,6 +105,7 @@ export class GameUI {
   constructor(cbs: UICallbacks) {
     hydrateIcons();
     this.q('#play-button').addEventListener('click', () => cbs.onPlay());
+    this.q('#home-chip').addEventListener('click', () => cbs.onHome());
     this.replayButton.addEventListener('click', () => cbs.onReplay());
 
     this.palButton.addEventListener('click', () => this.toggle('pal-book'));
@@ -175,6 +177,12 @@ export class GameUI {
     this.startScreen.classList.add('hidden');
     this.hud.classList.remove('hidden');
     if (voiceNote) this.voiceNote.textContent = voiceNote;
+  }
+
+  /** The reverse of enterPlay() — back to the hub. */
+  goHome(): void {
+    this.hud.classList.add('hidden');
+    this.startScreen.classList.remove('hidden');
   }
 
   setVoiceNote(text: string): void {

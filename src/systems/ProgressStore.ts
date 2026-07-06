@@ -82,6 +82,23 @@ export interface QuestProgress {
   unlockedToday: number;        // new words unlocked so far on unlockDayDate
 }
 
+/** Progress for the "Find the Mistake" companion game — separate from the Spanish vocab track. */
+/** "Find the Mistake" content domains — see content/mistake*.ts for each generator. */
+export type MistakeDomain = 'color' | 'pattern' | 'math' | 'oddOneOut';
+
+/** Per-domain progress — each domain adapts independently (Thomas may be much faster at one than another). */
+export interface MistakeDomainProgress {
+  bestTimeMs: number | null; // fastest correct-find time ever in this domain, ms
+  roundsWon: number;         // rounds where Thomas found it before the rival finished
+  roundsPlayed: number;
+  levelIndex: number;        // current level for this domain — derived from `skill`
+  skill: number;             // continuous adaptive-difficulty estimate, see mistakeSkillDelta()
+}
+
+export interface DebugGameProgress {
+  domains: Record<MistakeDomain, MistakeDomainProgress>;
+}
+
 export interface ProgressData {
   version: number;
   secondsPlayed: number;
@@ -91,6 +108,7 @@ export interface ProgressData {
   coins: number;
   settings: GameSettings;
   questProgress: QuestProgress;
+  debugGame: DebugGameProgress;
 }
 
 // ── SM-2 ────────────────────────────────────────────────────────────────────
@@ -132,6 +150,28 @@ function updateSRS(state: SRSState, quality: number): SRSState {
   };
 }
 
+// ── "Find the Mistake" adaptive difficulty (SM-2-flavored, single-session) ──
+// Not literal spaced repetition (no day-interval scheduling — this is a fast
+// arcade round, not a vocab review), but same spirit: fast-correct pushes
+// difficulty up more than slow-correct, and a miss eases it back down rather
+// than resetting to zero. `skill` is continuous; the level actually played is
+// Math.round(skill) fed into content/mistakeLevels.ts's levelForSkill(), which
+// generates levels procedurally past its hand-authored table — MAX_MISTAKE_SKILL
+// is just a sanity ceiling, not tied to any fixed level count, so a fast player
+// never plateaus.
+type MistakeOutcome = 'fast' | 'slow' | 'timeout';
+
+const MISTAKE_SKILL_STEP_FAST = 1;
+const MISTAKE_SKILL_STEP_SLOW = 0.5;
+const MISTAKE_SKILL_STEP_TIMEOUT = -0.5;
+const MAX_MISTAKE_SKILL = 30;
+
+function mistakeSkillDelta(outcome: MistakeOutcome): number {
+  if (outcome === 'fast') return MISTAKE_SKILL_STEP_FAST;
+  if (outcome === 'slow') return MISTAKE_SKILL_STEP_SLOW;
+  return MISTAKE_SKILL_STEP_TIMEOUT;
+}
+
 // ── Fluency levels (for dashboard) ──────────────────────────────────────────
 
 export type FluencyLevel = 'fluent' | 'learning' | 'struggling' | 'unseen';
@@ -166,6 +206,21 @@ function defaultWord(vocabId: string): WordRecord {
   };
 }
 
+function defaultMistakeDomainProgress(): MistakeDomainProgress {
+  return { bestTimeMs: null, roundsWon: 0, roundsPlayed: 0, levelIndex: 0, skill: 0 };
+}
+
+function defaultDebugGame(): DebugGameProgress {
+  return {
+    domains: {
+      color: defaultMistakeDomainProgress(),
+      pattern: defaultMistakeDomainProgress(),
+      math: defaultMistakeDomainProgress(),
+      oddOneOut: defaultMistakeDomainProgress(),
+    },
+  };
+}
+
 function defaultData(): ProgressData {
   return {
     version: 2,
@@ -176,6 +231,7 @@ function defaultData(): ProgressData {
     coins: 0,
     settings: { reducedMotion: false, muted: false, slowSpeech: false, playerColorId: 'azul', playerSize: 'normal', micDenied: false },
     questProgress: { nextUnlockIndex: INITIAL_ACTIVE, completed: 0, unlockDayNumber: 1, unlockDayDate: null, unlockedToday: 0 },
+    debugGame: defaultDebugGame(),
   };
 }
 
@@ -203,6 +259,17 @@ export class ProgressStore {
         coins: p.coins ?? 0,
         settings: { ...defaultData().settings, ...(p.settings ?? {}) },
         questProgress: { ...defaultData().questProgress, ...(p.questProgress ?? {}) },
+        // Per-domain merge (not a flat spread) so a save from before a domain
+        // existed — or the old pre-domains flat shape — still gets full
+        // defaults for whatever's missing, instead of silently dropping keys.
+        debugGame: {
+          domains: {
+            color: { ...defaultMistakeDomainProgress(), ...(p.debugGame?.domains?.color ?? {}) },
+            pattern: { ...defaultMistakeDomainProgress(), ...(p.debugGame?.domains?.pattern ?? {}) },
+            math: { ...defaultMistakeDomainProgress(), ...(p.debugGame?.domains?.math ?? {}) },
+            oddOneOut: { ...defaultMistakeDomainProgress(), ...(p.debugGame?.domains?.oddOneOut ?? {}) },
+          },
+        },
       };
 
       // Guard against UNLOCK_ORDER (interleaved by category) reshuffling
@@ -355,6 +422,43 @@ export class ProgressStore {
     this.data.creatures.push(id);
     this.scheduleSave();
     return true;
+  }
+
+  // ── Debug/mistake game ──
+
+  get debugGame(): DebugGameProgress { return this.data.debugGame; }
+
+  /** Progress for one "Find the Mistake" domain — each adapts independently. */
+  debugDomain(domain: MistakeDomain): MistakeDomainProgress {
+    return this.data.debugGame.domains[domain];
+  }
+
+  /**
+   * Records a completed round and adapts that domain's difficulty. `beatRival`
+   * is true if Thomas found it before the rival finished; `rivalMs` comes
+   * from the caller since ProgressStore doesn't depend on game content.
+   */
+  recordDebugRound(domain: MistakeDomain, beatRival: boolean, timeMs: number, rivalMs: number): void {
+    const g = this.data.debugGame.domains[domain];
+    g.roundsPlayed += 1;
+    if (beatRival) g.roundsWon += 1;
+    if (g.bestTimeMs === null || timeMs < g.bestTimeMs) g.bestTimeMs = timeMs;
+    const margin = beatRival ? (rivalMs - timeMs) / rivalMs : 0;
+    this.applyMistakeSkillDelta(g, beatRival ? (margin > 0.5 ? 'fast' : 'slow') : 'timeout');
+    this.scheduleSave();
+  }
+
+  /** Rival reached the finish line before Thomas found it — no time to record, just eases difficulty back. */
+  recordDebugTimeout(domain: MistakeDomain): void {
+    const g = this.data.debugGame.domains[domain];
+    g.roundsPlayed += 1;
+    this.applyMistakeSkillDelta(g, 'timeout');
+    this.scheduleSave();
+  }
+
+  private applyMistakeSkillDelta(g: MistakeDomainProgress, outcome: MistakeOutcome): void {
+    g.skill = Math.max(0, Math.min(MAX_MISTAKE_SKILL, g.skill + mistakeSkillDelta(outcome)));
+    g.levelIndex = Math.round(g.skill);
   }
 
   // ── SRS review scheduling ──
