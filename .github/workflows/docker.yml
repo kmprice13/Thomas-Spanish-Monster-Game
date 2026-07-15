@@ -1,8 +1,11 @@
 name: docker
 
+# Deploys are release-gated: pushing to main builds nothing. Publishing a
+# GitHub Release moves :latest, and wagyu's autodeploy poller (homelab repo,
+# systemd/islamonstruo) redeploys within ~2 minutes.
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -25,4 +28,4 @@ jobs:
           push: true
           tags: |
             ghcr.io/kmprice13/thomas-spanish-monster-game:latest
-            ghcr.io/kmprice13/thomas-spanish-monster-game:${{ github.sha }}
+            ghcr.io/kmprice13/thomas-spanish-monster-game:${{ github.event.release.tag_name || github.sha }}

@@ -31,6 +31,20 @@ The production build is a static site (no backend, no runtime env vars) served b
 
 This repo only owns the image. The deployment to wagyu lives in the `tfp1/homelab` repo (the GitOps source of truth for its Portainer stacks): `stacks/islamonstruo/docker-compose.yml` pulls the GHCR image onto Caddy's docker network, and `caddy/Caddyfile` routes `http://islamonstruo.tfp.pizza` to it. The existing `*.tfp.pizza` wildcard (Cloudflare DNS + tunnel ingress to Caddy) already covers the subdomain, so a deploy needs no Cloudflare changes.
 
-One-time setup after the first image publish: flip the GHCR package to public (repo → Packages → package settings) so wagyu can pull it unauthenticated.
+Redeploys are pull-based: a systemd timer on wagyu (homelab repo, `systemd/islamonstruo/`) polls GHCR every 2 minutes and redeploys the stack when `:latest` changes. `:latest` only changes when a release is published, so **publishing a release is the deploy button**.
+
+## Releasing
+
+Work merges to `main` whenever — nothing deploys from pushes. To ship what's on `main`:
+
+1. GitHub → **Releases** → **Draft a new release**
+2. **Choose a tag** → type the next version (e.g. `v0.3.0`) → "Create new tag on publish"
+3. **Publish release**
+4. Watch the **Actions** tab — the `docker` workflow takes ~3–4 min to build and push the image. Within ~2 more minutes, wagyu swaps the container (a few seconds of downtime). Total: live in about 5 minutes.
+5. Open https://islamonstruo.tfp.pizza to confirm — no hard refresh needed, the page shell is never cached.
+
+Caveats:
+- Replaced art/audio that keeps the **same filename** can take up to 4 hours to reach devices that played recently (Cloudflare cache). New/renamed files and all code changes are immediate.
+- **Rollback:** Actions → `docker` → open the run for the last good release → **Re-run all jobs**. That rebuilds the old version, re-points `:latest`, and wagyu redeploys it automatically.
 
 No environment variables or secrets are needed at runtime — ElevenLabs credentials are only used at build/asset-generation time by `scripts/generate-audio.mjs`, and the resulting audio files are already static assets under `public/audio`.
