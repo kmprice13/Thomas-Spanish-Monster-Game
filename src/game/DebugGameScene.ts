@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { AudioSystem } from '../systems/AudioSystem';
 import { ProgressStore, type MistakeDomain } from '../systems/ProgressStore';
 import { drawItem } from '../drawing/drawItem';
-import { generateRound, MISTAKE_DOMAINS, DOMAIN_PROMPT, type RoundContent } from '../content/mistakeRound';
+import { generateRound, ACTIVE_MISTAKE_DOMAINS, DOMAIN_PROMPT, type RoundContent } from '../content/mistakeRound';
 
 // ── Layout (800×600 logical canvas, matches MainScene) ─────────────────────
 const TRACK_X0 = 150;
@@ -42,9 +42,12 @@ function layoutPositionsVertical(count: number): Array<{ x: number; y: number }>
  * teaches a concept, it doesn't teach Spanish vocabulary, so it stays
  * decoupled from the Spanish game.
  *
- * Four content domains (see content/mistakeRound.ts), picked at random each
- * round: color-odd-one-out, pattern-break, math-fact-error, and general
- * odd-one-out. Each domain adapts and tracks difficulty independently
+ * Four content domains exist (see content/mistakeRound.ts): color-odd-one-out,
+ * pattern-break, math-fact-error, and general odd-one-out. Only 'color' is
+ * active for now (ACTIVE_MISTAKE_DOMAINS) — math is too hard for Thomas at
+ * his current level and pattern isn't reading clearly yet; the other three
+ * stay fully implemented and re-enable with a one-line change once ready.
+ * Each domain adapts and tracks difficulty independently
  * (ProgressStore.debugDomain) since Thomas may be much faster at one than
  * another. Every domain generator is purely formulaic — no fixed level table
  * to outgrow — see the plateau bug note in project-debugging-game-roadmap
@@ -132,7 +135,7 @@ export class DebugGameScene extends Phaser.Scene {
     this.rivalTween?.stop();
     this.rivalDot.setPosition(TRACK_X0, TRACK_Y);
 
-    this.domain = MISTAKE_DOMAINS[Phaser.Math.Between(0, MISTAKE_DOMAINS.length - 1)];
+    this.domain = ACTIVE_MISTAKE_DOMAINS[Phaser.Math.Between(0, ACTIVE_MISTAKE_DOMAINS.length - 1)];
     const content = generateRound(this.domain, this.progress.debugDomain(this.domain).levelIndex);
     this.currentRivalMs = content.rivalMs;
     this.correctContainer = null;

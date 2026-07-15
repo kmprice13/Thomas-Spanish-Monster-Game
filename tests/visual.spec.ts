@@ -62,16 +62,13 @@ test('renders a nonblank interactive game canvas', async ({ page }, testInfo) =>
   const before = await page.evaluate(() => window.__THREE_GAME_DIAGNOSTICS__?.player.position.z ?? 0);
 
   if (testInfo.project.name.includes('mobile')) {
-    const stick = page.locator('#touch-stick');
-    await expect(stick).toBeVisible();
-    const box = await stick.boundingBox();
+    // Tap-to-move: a single tap on the canvas should send the player walking there.
+    const canvas = page.locator('#game-canvas');
+    const box = await canvas.boundingBox();
     expect(box).not.toBeNull();
     if (box) {
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-      await page.mouse.down();
-      await page.mouse.move(box.x + box.width / 2, box.y + box.height * 0.05, { steps: 6 });
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height * 0.1);
       await page.waitForTimeout(450);
-      await page.mouse.up();
     }
   } else {
     await page.keyboard.down('KeyW');

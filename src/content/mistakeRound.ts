@@ -19,6 +19,12 @@ export type RoundContent =
 
 export const MISTAKE_DOMAINS: MistakeDomain[] = ['color', 'pattern', 'math', 'oddOneOut'];
 
+// Only 'color' ships for now — math is too hard for Thomas at his current
+// level and pattern isn't reading clearly yet. The other three domains'
+// generators/levels/progress all stay intact so this is a one-line revert
+// once they're ready; see MISTAKE_DOMAINS above for the full set.
+export const ACTIVE_MISTAKE_DOMAINS: MistakeDomain[] = ['color'];
+
 export const DOMAIN_PROMPT: Record<MistakeDomain, string> = {
   color: 'Tap the one that doesn’t belong',
   pattern: 'Tap the one that breaks the pattern',

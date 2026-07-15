@@ -140,13 +140,11 @@ export class MainScene extends Phaser.Scene {
     S: Phaser.Input.Keyboard.Key;
     D: Phaser.Input.Keyboard.Key;
   };
-  private touchActiveId = -1;
-  private touchStartX   = 0;
-  private touchStartY   = 0;
-  private touchDx       = 0;
-  private touchDy       = 0;
-  private touchStickEl: HTMLElement | null = null;
-  private touchKnobEl:  HTMLElement | null = null;
+  // Tap-to-move destination (world coords); null when Thomas isn't walking to a tap.
+  private moveTargetX: number | null = null;
+  private moveTargetY: number | null = null;
+  private tapMarkerGfx!: Phaser.GameObjects.Graphics; // fading ring at the tap destination
+  private tapMarkerAge = 0; // seconds since the marker was last (re)placed
 
   // ── Game state ────────────────────────────────────────────────────────────
   private phase: Phase = 'start';
@@ -389,6 +387,9 @@ export class MainScene extends Phaser.Scene {
     drawRocksAndFlowers(decoGfx, ISLAND_CX, ISLAND_CY);
     decoGfx.setDepth(3);
 
+    // ── Tap-to-move destination marker (fades out as Thomas arrives) ──────
+    this.tapMarkerGfx = this.add.graphics().setDepth(4);
+
     // ── Palm trees with sway animation (depth 2) ──────────────────────────
     const palmPositions = [
       { x: 298, y: 265 },
@@ -496,84 +497,19 @@ export class MainScene extends Phaser.Scene {
       D: Phaser.Input.Keyboard.Key;
     };
 
-    // Touch joystick — stick is pinned to a fixed corner (#touch-stick CSS);
-    // the knob inside it tracks the drag offset, same as before.
-    this.touchStickEl = document.getElementById('touch-stick');
-    this.touchKnobEl  = document.getElementById('touch-knob');
-    const joystickHint = document.getElementById('joystick-hint');
-
+    // Tap-to-move — tap or click anywhere on the island and Thomas walks
+    // there (replaces the old drag-joystick, which measured the drag from
+    // wherever a thumb happened to land while the visual stick stayed
+    // pinned to a fixed corner — a mismatch that read as confusing "drag").
+    // Walking onto a vocab item still collects it via the existing
+    // proximity check in update(), so tapping directly on an item just
+    // means "walk to it and collect it."
     this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
-      if (ptr.x < 480 && this.touchActiveId === -1) {
-        this.touchActiveId = ptr.id;
-        this.touchStartX   = ptr.x;
-        this.touchStartY   = ptr.y;
-        this.touchDx = 0;
-        this.touchDy = 0;
-        // Hide the static hint ring once the player has found the joystick zone
-        if (joystickHint) joystickHint.style.display = 'none';
-        // Stick circle is CSS-pinned to the corner (see #touch-stick) — just reveal it.
-        // Drag math below still tracks from the actual touch-down point, unchanged.
-        if (this.touchStickEl) this.touchStickEl.style.display = 'block';
-      }
-    });
-
-    this.input.on('pointermove', (ptr: Phaser.Input.Pointer) => {
-      if (ptr.id !== this.touchActiveId) return;
-      const dx  = ptr.x - this.touchStartX;
-      const dy  = ptr.y - this.touchStartY;
-      const len = Math.sqrt(dx * dx + dy * dy);
-      if (len > 5) {
-        this.touchDx = dx / Math.max(len, 40);
-        this.touchDy = dy / Math.max(len, 40);
-      }
-      // Move knob to match thumb offset (clamped to stick edge)
-      if (this.touchKnobEl && this.touchStickEl) {
-        const cvs    = this.sys.game.canvas;
-        const rect   = cvs.getBoundingClientRect();
-        const pxDx   = dx * (rect.width  / 800);
-        const pxDy   = dy * (rect.height / 600);
-        const maxR   = (this.touchStickEl.offsetWidth  / 2) -
-                       (this.touchKnobEl.offsetWidth   / 2);
-        const pxLen  = Math.sqrt(pxDx * pxDx + pxDy * pxDy);
-        const cx     = pxLen > maxR ? (pxDx / pxLen) * maxR : pxDx;
-        const cy     = pxLen > maxR ? (pxDy / pxLen) * maxR : pxDy;
-        this.touchKnobEl.style.transform =
-          `translate(calc(-50% + ${cx}px), calc(-50% + ${cy}px))`;
-      }
-    });
-
-    this.input.on('pointerup', (ptr: Phaser.Input.Pointer) => {
-      const wasJoystick = ptr.id === this.touchActiveId;
-      if (wasJoystick) {
-        this.touchActiveId = -1;
-        this.touchDx = 0;
-        this.touchDy = 0;
-        if (this.touchStickEl) this.touchStickEl.style.display = 'none';
-        if (this.touchKnobEl)  this.touchKnobEl.style.transform = 'translate(-50%, -50%)';
-      }
-      // Tap-to-collect only fires from a DIFFERENT finger than the joystick,
-      // so two-thumb play (move + tap) works correctly on iPad
-      if (!wasJoystick && (this.phase === 'playing' || this.phase === 'firstEncounter')) {
-        for (const wo of this.worldObjects) {
-          if (!wo.active) continue;
-          const dx = ptr.x - wo.x;
-          const dy = ptr.y - wo.y;
-          if (Math.sqrt(dx * dx + dy * dy) < COLLECT_RADIUS + 10) {
-            if (this.phase === 'firstEncounter') this.onFirstEncounterTap(wo);
-            else this.evaluateObject(wo);
-            break;
-          }
-        }
-      }
-    });
-
-    // Safety: if a finger leaves the canvas without firing pointerup, reset joystick
-    this.input.on('gameout', () => {
-      this.touchActiveId = -1;
-      this.touchDx = 0;
-      this.touchDy = 0;
-      if (this.touchStickEl) this.touchStickEl.style.display = 'none';
-      if (this.touchKnobEl)  this.touchKnobEl.style.transform = 'translate(-50%, -50%)';
+      const canMove = this.phase === 'playing' || this.phase === 'speaking' || this.phase === 'firstEncounter';
+      if (!canMove) return;
+      this.moveTargetX = ptr.x;
+      this.moveTargetY = ptr.y;
+      this.tapMarkerAge = 0;
     });
 
     // Pal book speak events
@@ -694,7 +630,23 @@ export class MainScene extends Phaser.Scene {
       if (this.cursors.right.isDown || this.wasd.D.isDown) ix += 1;
       if (this.cursors.up.isDown    || this.wasd.W.isDown) iy -= 1;
       if (this.cursors.down.isDown  || this.wasd.S.isDown) iy += 1;
-      if (this.touchActiveId !== -1) { ix += this.touchDx; iy += this.touchDy; }
+
+      if (ix !== 0 || iy !== 0) {
+        // Keyboard always wins over an in-progress walk-to-tap.
+        this.moveTargetX = null;
+        this.moveTargetY = null;
+      } else if (this.moveTargetX !== null && this.moveTargetY !== null) {
+        const tdx = this.moveTargetX - this.playerX;
+        const tdy = this.moveTargetY - this.playerY;
+        const tdist = Math.sqrt(tdx * tdx + tdy * tdy);
+        if (tdist < 6) {
+          this.moveTargetX = null;
+          this.moveTargetY = null;
+        } else {
+          ix = tdx / tdist;
+          iy = tdy / tdist;
+        }
+      }
 
       const ilen = Math.sqrt(ix * ix + iy * iy);
       if (ilen > 1) { ix /= ilen; iy /= ilen; }
@@ -728,6 +680,17 @@ export class MainScene extends Phaser.Scene {
       this.playerImg.y = bobY;
       if (!this.playerImg.visible) this.playerImg.setVisible(true);
       this.playerShadow.setPosition(this.playerX, bobY + 65 * this.playerScaleRatio);
+    }
+
+    // Fading ring at the tap destination — visual feedback for tap-to-move
+    if (this.moveTargetX !== null && this.moveTargetY !== null) {
+      this.tapMarkerAge += dt;
+      const t = Math.min(this.tapMarkerAge / 0.5, 1);
+      this.tapMarkerGfx.clear();
+      this.tapMarkerGfx.lineStyle(3, 0xffe66d, 0.9 * (1 - t));
+      this.tapMarkerGfx.strokeCircle(this.moveTargetX, this.moveTargetY, 14 + t * 18);
+    } else {
+      this.tapMarkerGfx.clear();
     }
 
     // ── Quest interaction (playing phase) ────────────────────────────────
