@@ -14,7 +14,7 @@ import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const DOMAIN       = 'https://secrets.tfp.pizza';
+const DOMAIN       = 'https://secrets.tfp.coffee';
 const CLIENT_ID     = process.env.INFISICAL_CLIENT_ID;
 const CLIENT_SECRET = process.env.INFISICAL_CLIENT_SECRET;
 const ENV_SLUG      = process.env.INFISICAL_ENV ?? 'prod';
