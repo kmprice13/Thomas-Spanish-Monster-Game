@@ -1,8 +1,8 @@
 name: docker
 
 # Deploys are release-gated: pushing to main builds nothing. Publishing a
-# GitHub Release moves :latest, and wagyu's autodeploy poller (homelab repo,
-# systemd/islamonstruo) redeploys within ~2 minutes.
+# GitHub Release moves :latest, and homelab's dash-applier release poll
+# redeploys the managed islamonstruo app within ~2 minutes.
 on:
   release:
     types: [published]
