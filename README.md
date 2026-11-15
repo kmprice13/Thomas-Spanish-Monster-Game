@@ -34,15 +34,13 @@ The production build is a static site (no backend, no runtime env vars) served b
 - Runs as numeric non-root user **`1000:1000`** by default. No writable volumes are needed; nginx keeps its pid/temp files in `/tmp`.
 - `GET /healthz` → `200 ok` (`Cache-Control: no-store`). The image's `HEALTHCHECK` probes it with the busybox `wget` that ships in the base image.
 
-This repo only owns the image. The deployment to wagyu lives in the `tfp1/homelab` repo (the GitOps source of truth for its Portainer stacks): `stacks/islamonstruo/docker-compose.yml` pulls the GHCR image onto Caddy's docker network, and `caddy/Caddyfile` routes `http://islamonstruo.tfp.pizza` to it. The existing `*.tfp.pizza` wildcard (Cloudflare DNS + tunnel ingress to Caddy) already covers the subdomain, so a deploy needs no Cloudflare changes.
+This repo only owns the image. On wagyu the game runs as the dash-managed app `islamonstruo` (owner kmp) in the `tfp1/homelab` repo ([tfp1/homelab#260](https://github.com/tfp1/homelab/issues/260)). Its runtime files there are generated: `apps/islamonstruo/docker-compose.yml` runs the GHCR image, and `caddy/apps/islamonstruo.caddy` routes `https://islamonstruo.tfp.pizza` to it. Nobody hand-edits those files; runtime changes (domain, port, health path, image tag) go through an approved app spec in dash, submitted through dash or the homelab deploy MCP. The existing `*.tfp.pizza` wildcard (Cloudflare DNS + tunnel ingress to Caddy) already covers the subdomain, so a deploy needs no Cloudflare changes.
 
-Redeploys are pull-based: a systemd timer on wagyu (homelab repo, `systemd/islamonstruo/`) polls GHCR every 2 minutes and redeploys the stack when `:latest` changes. `:latest` only changes when a release is published, so **publishing a release is the deploy button**.
+Redeploys are pull-based: homelab's dash-applier polls GHCR every 2 minutes and redeploys the app when the `:latest` digest changes. `:latest` only changes when the `docker` workflow runs (a published release or a manual dispatch), so **publishing a release is the deploy button**.
 
 ## Releasing
 
 Work merges to `main` whenever — nothing deploys from pushes. To ship what's on `main`:
-
-> **Hold releases until the 8080 cutover (tfp1/homelab#260).** The image now listens on 8080 as a non-root user. The current wagyu stack and its poller still expect port 80, and they redeploy whenever `:latest` moves. Publishing a release before the homelab side has retired that poller and cut over would take the site down. Coordinate with the homelab owner before the next release.
 
 1. GitHub → **Releases** → **Draft a new release**
 2. **Choose a tag** → type the next version (e.g. `v0.3.0`) → "Create new tag on publish"
@@ -52,6 +50,6 @@ Work merges to `main` whenever — nothing deploys from pushes. To ship what's o
 
 Caveats:
 - Replaced art/audio that keeps the **same filename** can take up to 4 hours to reach devices that played recently (Cloudflare cache). New/renamed files and all code changes are immediate.
-- **Rollback:** Actions → `docker` → open the run for the last good release → **Re-run all jobs**. That rebuilds the old version, re-points `:latest`, and wagyu redeploys it automatically.
+- **Rollback:** coordinate it with the homelab owner. Pick the last good release whose image meets the image contract above (8080, `1000:1000`, `/healthz`); GHCR tags each release image with its release tag. The homelab owner moves the app to that image through dash. Releases built before the 8080 change ([#47](https://github.com/kmprice13/Thomas-Spanish-Monster-Game/pull/47)), which is v0.3.0 and everything earlier, produce a root, port-80 image the managed app can't run, so re-running an old release's `docker` workflow is not a safe rollback.
 
 No environment variables or secrets are needed at runtime — ElevenLabs credentials are only used at build/asset-generation time by `scripts/generate-audio.mjs`, and the resulting audio files are already static assets under `public/audio`.
